@@ -1,0 +1,31 @@
+name: Dependabot auto merge
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  auto-merge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Trusted metadata only: never check out or execute the PR's code here.
+      - uses: dependabot/fetch-metadata@v3
+        id: metadata
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify branch protection and queue auto merge after CI
+        if: steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          gh api graphql -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){branchProtectionRules(first:100){nodes{pattern requiresStatusChecks requiredStatusCheckContexts}}}}' -F owner="${GH_REPO%/*}" -F name="${GH_REPO#*/}" --jq '[.data.repository.branchProtectionRules.nodes[] | select(.pattern == "main" and .requiresStatusChecks == true and (.requiredStatusCheckContexts | index("quality") != null))] | length > 0' | jq -e .
+          files=$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER/files" --paginate --jq '.[].filename')
+          test "$files" = pnpm-lock.yaml
+          gh pr merge "$PR_NUMBER" --repo "$GH_REPO" --auto --squash --match-head-commit "$HEAD_SHA"

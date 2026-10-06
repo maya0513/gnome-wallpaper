@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.gnome-wallpaper" path="/org/gnome/shell/extensions/gnome-wallpaper/">
+    <key name="market" type="s">
+      <default>'ja-JP'</default>
+      <summary>Bing market</summary>
+      <description>A market code such as ja-JP or en-US.</description>
+    </key>
+    <key name="resolution" type="s">
+      <choices><choice value="UHD"/><choice value="1920x1080"/></choices>
+      <default>'UHD'</default>
+      <summary>Image resolution</summary>
+      <description>Use Bing's normal image when UHD is unavailable.</description>
+    </key>
+  </schema>
+</schemalist>

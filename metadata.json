@@ -1,0 +1,9 @@
+{
+  "uuid": "gnome-wallpaper@maya0513.github.io",
+  "name": "Daily Wallpaper",
+  "description": "Set Bing's daily images as GNOME wallpapers for both light and dark themes.",
+  "shell-version": ["50"],
+  "session-modes": ["user", "unlock-dialog"],
+  "settings-schema": "org.gnome.shell.extensions.gnome-wallpaper",
+  "url": "https://github.com/maya0513/gnome-wallpaper"
+}

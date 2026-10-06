@@ -1,0 +1,46 @@
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install GJS and package validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y gjs gir1.2-soup-3.0 gsettings-desktop-schemas libglib2.0-bin zip unzip
+      - uses: jdx/mise-action@v5
+        with:
+          auto_update: true
+      - name: Update within the declared majors
+        run: mise upgrade node pnpm
+      - name: Install from the lockfile
+        run: mise exec -- pnpm install --frozen-lockfile
+      - name: Run all checks with Vite Tasks
+        run: mise exec -- pnpm exec vp run ci
+      - name: Upload coverage, GJS, and build size reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: reports
+          path: |
+            coverage/
+            artifacts/gjs-integration.json
+            artifacts/build-size.json
+          if-no-files-found: warn
+      - name: Upload the extension ZIP
+        uses: actions/upload-artifact@v7
+        with:
+          name: gnome-wallpaper
+          path: artifacts/*.zip
+          if-no-files-found: error

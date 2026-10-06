@@ -1,0 +1,8 @@
+node_modules/
+.pnpm-store/
+dist/
+artifacts/
+coverage/
+.cache/
+mise.lock
+*.log
