@@ -4,5 +4,4 @@ dist/
 artifacts/
 coverage/
 .cache/
-mise.lock
 *.log

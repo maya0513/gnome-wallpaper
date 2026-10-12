@@ -75,11 +75,11 @@ All executable `src/**/*.ts` files, including UI, entry points, adapters, and un
 
 The [native test](../tests/integration/gjs.ts), launched by [test-gjs.ts](../scripts/test-gjs.ts), runs the actual core, provider, controller, and adapters with real GJS, Soup, and Gio. A local HTTP server, temporary directory, and memory GSettings exercise UHD fallback, cache reuse, indexed cleanup and protection, conditional restoration, invalid metadata, HTTP errors, native network/storage cancellation, and schema defaults/writes. Selected ES2025 APIs are also exercised. The HTTP fixture uses synthetic bytes; it does not verify decoding/displaying a real photograph or Bing's live responses.
 
-Local verification has passed with GJS 1.88.0. Live Bing, installation, real panel/preferences behavior, wallpaper display, and lock-screen operation remain unverified. There is no release or deployment in this iteration. GitHub CI runs on Ubuntu 26.04; current results and reports are available in [Actions](https://github.com/maya0513/gnome-wallpaper/actions). Branch protection and repository auto merge are not enabled.
+Local verification has passed with GJS 1.88.0. Live Bing, installation, real panel/preferences behavior, wallpaper display, and lock-screen operation remain unverified. There is no release or deployment in this iteration. GitHub CI runs on Ubuntu 26.04; current results and reports are available in [Actions](https://github.com/maya0513/gnome-wallpaper/actions). Repository protection and automerge settings must be checked separately. The rebuilt workflow has been checked locally; its GitHub execution still needs verification after publication.
 
 ## Build, tasks, and artifact size
 
-Development uses mise-managed Node 24/pnpm 12 and project-local Vite+ 1/TypeScript 7, with major-range declarations and exact resolutions in `pnpm-lock.yaml`. The coverage provider must match Vite+'s bundled Vitest exactly, with a single resolved Vitest. Strict lint, type checks, coverage, build, native integration, ZIP validation, and size measurement run through Vite tasks in [vite.config.ts](../vite.config.ts). Setup and acceptance commands are in [AGENTS.md](../AGENTS.md).
+Development uses Node and pnpm pinned to complete `x.y.z` versions in [mise.toml](../mise.toml), with download URLs and SHA-256 checksums in [mise.lock](../mise.lock) for Linux x64 and ARM64. Project-local Vite+ and TypeScript use caret ranges and exact resolutions in `pnpm-lock.yaml`. CI installs the locked tool versions without upgrading them. The coverage provider must match Vite+'s bundled Vitest exactly, with a single resolved Vitest. Strict lint, type checks, coverage, build, native integration, ZIP validation, and size measurement run through Vite tasks in [vite.config.ts](../vite.config.ts).
 
 `tsconfig.json` checks application code and development files with Node types. `tsconfig.app.json` adds an application-only check without ambient Node globals. It is a type-environment boundary, not a second output build; explicitly importing a Node module is not prevented by `types: []` alone. Packaging validation also checks for development imports in the emitted JavaScript.
 
@@ -100,8 +100,10 @@ These measure artifact bytes, not RAM usage, downloaded photo sizes, or installe
 
 Minification removes formatting and may shorten names to reduce JavaScript size. ZIP compression reduces archive size while keeping extracted code readable. This project uses ZIP compression and leaves JavaScript unminified, following [GNOME's requirement for readable, unminified extension code](https://gjs.guide/extensions/review-guidelines/review-guidelines.html#code-must-not-be-obfuscated). Future size changes should be assessed using the report and the same acceptance checks.
 
-## Updates and licensing
+## Continuous integration and dependency updates
 
-The configured GitHub workflow runs on push, pull requests, and manual dispatch. It upgrades Node/pnpm within their specified majors, installs with the frozen lockfile, and runs local Vite CI tasks. Dependabot is configured for weekly lockfile-only dependency updates with Vite/Vitest/coverage grouped. Automatic merge is limited to minor/patch lockfile-only PRs, requires the configured `quality` branch check, and never checks out or executes PR code in its privileged workflow. Configured automation is not evidence that remote checks or protection settings are active.
+See [CI and dependency updates](CI.md) for acceptance jobs, Renovate policy, the shared artifact workflow, App authentication, required checks, and recovery. CI validates committed locks without upgrading dependencies. Node and pnpm are exact and synchronized between mise and package.json; ordinary npm dependencies use caret ranges. Vite+-derived coverage and workspace overrides use exact versions. All external Actions and reusable workflows are SHA-pinned.
+
+## Licensing
 
 The independently written code and documentation use MIT. Keep its copyright and permission notice with distributed copies. GNOME and dependencies retain their licenses; combined distribution must respect applicable GPL terms. See [GNOME's licensing requirements](https://gjs.guide/extensions/review-guidelines/review-guidelines.html#licensing). Software licensing does not grant rights to Bing's images.

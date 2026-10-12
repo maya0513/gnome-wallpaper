@@ -75,11 +75,11 @@ UI、入口、アダプター、未 import のファイルも含め、実行可�
 
 [test-gjs.ts](../scripts/test-gjs.ts) が起動する [実 GJS テスト](../tests/integration/gjs.ts) は、実際のコア、取得元、コントローラー、アダプターを GJS、Soup、Gio 上で実行します。ローカル HTTP サーバー、一時ディレクトリ、メモリ版 GSettings を使い、UHD の代替取得、キャッシュ再利用、索引に基づく整理と保護、条件付き復元、不正な画像情報、HTTP エラー、実通信・保存の中断、スキーマの既定値と書き込みを確認します。一部の ES2025 API も実行します。HTTP の画像データは合成したバイト列であり、実際の写真のデコード・表示や Bing の実応答は確認しません。
 
-ローカル検証は GJS 1.88.0 で成功しています。実際の Bing、インストール、パネル・設定画面、壁紙表示、ロック中の動作は未検証です。今回の範囲にリリースとデプロイは含みません。GitHub の CI は Ubuntu 26.04 上で実行し、最新の結果とレポートは [Actions](https://github.com/maya0513/gnome-wallpaper/actions) で確認できます。ブランチ保護とリポジトリの自動マージは有効にしていません。
+ローカル検証は GJS 1.88.0 で成功しています。実際の Bing、インストール、パネル・設定画面、壁紙表示、ロック中の動作は未検証です。今回の範囲にリリースとデプロイは含みません。GitHub の CI は Ubuntu 26.04 上で実行し、最新の結果とレポートは [Actions](https://github.com/maya0513/gnome-wallpaper/actions) で確認できます。リポジトリ保護と自動マージの設定は別途確認が必要です。再構成したワークフローはローカルで検証し、公開後の GitHub 上の実行確認は残っています。
 
 ## ビルド・タスク・サイズ
 
-開発には mise 管理の Node 24／pnpm 12 と、プロジェクト内の Vite+ 1／TypeScript 7 を使います。宣言はメジャー指定で、正確な解決結果は `pnpm-lock.yaml` に記録します。カバレッジの依存は Vite+ 同梱の Vitest と完全一致させ、Vitest の解決を一つに保ちます。厳格な lint、型検査、カバレッジ、ビルド、実 GJS 結合テスト、ZIP 検証、サイズ計測は [vite.config.ts](../vite.config.ts) の Vite task から実行します。環境の準備と変更の受理条件は [AGENTS.md](../AGENTS.md) にあります。
+開発には [mise.toml](../mise.toml) で `x.y.z` まで完全固定した Node／pnpm を使い、Linux x64・ARM64 の配布 URL と SHA-256 チェックサムを [mise.lock](../mise.lock) に記録します。プロジェクト内の Vite+／TypeScript はキャレット指定で、正確な解決結果は `pnpm-lock.yaml` に記録します。CI はロック済みのツールバージョンをインストールし、その場でアップグレードしません。カバレッジの依存は Vite+ 同梱の Vitest と完全一致させ、Vitest の解決を一つに保ちます。厳格な lint、型検査、カバレッジ、ビルド、実 GJS 結合テスト、ZIP 検証、サイズ計測は [vite.config.ts](../vite.config.ts) の Vite task から実行します。
 
 `tsconfig.json` は Node の型を使い、アプリケーションと開発用ファイルを検査します。`tsconfig.app.json` は、Node の暗黙のグローバル型を含めないアプリケーション専用の追加検査です。別の出力ビルドではなく型環境の境界であり、`types: []` だけで Node モジュールの明示的な import を禁止するものではありません。パッケージの検証でも、出力 JavaScript への開発依存の import を確認します。
 
@@ -100,8 +100,10 @@ UI、入口、アダプター、未 import のファイルも含め、実行可�
 
 minify は整形用の空白などを削り、名前を短くすることで JavaScript を小さくする処理です。ZIP 圧縮は、展開したコードの読みやすさを維持したままアーカイブを小さくします。このプロジェクトは ZIP 圧縮を使い、JavaScript は minify しません。[GNOME の審査規約では、読みやすく minify していない拡張コードが必要](https://gjs.guide/extensions/review-guidelines/review-guidelines.html#code-must-not-be-obfuscated)です。今後のサイズ変更は報告と同じ受理条件で評価します。
 
-## 更新とライセンス
+## CI と依存更新
 
-GitHub のワークフローは push、PR、手動実行を設定しています。指定メジャー内で Node／pnpm を更新し、固定 lockfile でインストールして Vite の CI タスクを実行します。Dependabot は週次の lockfile 更新を設定し、Vite／Vitest／カバレッジを同じグループにします。自動マージは minor／patch の lockfile だけを変更する PR に限定し、設定済みのブランチ必須チェック `quality` を要求します。権限を持つワークフローは PR のコードを checkout・実行しません。設定ファイルがあることは、リモートのチェックや保護設定が有効であることの証拠ではありません。
+受理判定ジョブ、Renovate 方針、共通の生成物ワークフロー、App 認証、必須チェック、復旧手順は [CI と依存更新](CI.ja.md) を参照してください。CI は依存をアップグレードせずコミット済み lock を検証します。Node／pnpm は mise と package.json で完全指定を揃え、通常の npm 依存はキャレット指定、Vite+ 由来の coverage と workspace override は完全指定にします。外部 Actions と再利用ワークフローはすべて SHA 固定です。
+
+## ライセンス
 
 独立して作成したコードとドキュメントは MIT です。配布するコピーには著作権表示と許諾表示を維持します。GNOME と依存ライブラリにはそれぞれのライセンスが適用され、組み合わせた配布では適用される GPL の条件を守ります。[GNOME のライセンス要件](https://gjs.guide/extensions/review-guidelines/review-guidelines.html#licensing)を参照してください。ソフトウェアのライセンスは Bing の写真の権利を許諾しません。

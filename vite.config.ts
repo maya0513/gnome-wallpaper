@@ -8,6 +8,18 @@ export default defineConfig({
     tasks: {
       toolchain: "node scripts/toolchain.ts",
       "align-toolchain": "node scripts/toolchain.ts --align",
+      "ci-tools": "node scripts/install-ci-tools.ts",
+      workflows: {
+        command: [
+          ".cache/ci-tools/actionlint -shellcheck=.cache/ci-tools/shellcheck",
+          ".cache/ci-tools/zizmor --pedantic --offline .github/workflows",
+        ],
+        dependsOn: ["ci-tools"],
+      },
+      configuration: {
+        command: "vp test run tests/ci.test.ts --reporter=default",
+        dependsOn: ["workflows"],
+      },
       format: "vp fmt",
       test: "vp test run",
       "test-watch": "vp test watch",
@@ -17,9 +29,13 @@ export default defineConfig({
       integration: { command: "node scripts/test-gjs.ts", dependsOn: ["bundle"] },
       size: { command: measureSize, dependsOn: ["bundle"] },
       validate: { command: "node scripts/validate-package.ts", dependsOn: ["bundle"] },
+      native: {
+        command: measureSize,
+        dependsOn: ["integration", "validate"],
+      },
       ci: {
         command: measureSize,
-        dependsOn: ["toolchain", "static", "coverage", "integration", "validate"],
+        dependsOn: ["configuration", "toolchain", "static", "coverage", "native"],
       },
     },
   },
@@ -191,6 +207,7 @@ export default defineConfig({
   },
   test: {
     include: ["tests/**/*.test.ts"],
+    reporters: ["default", ["junit", { outputFile: "artifacts/unit-tests.xml" }]],
     alias: {
       "gi://Gio": "/tests/mocks/gio.ts",
       "gi://GLib": "/tests/mocks/glib.ts",
