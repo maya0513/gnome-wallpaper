@@ -49,17 +49,17 @@ Node と pnpm は `mise.toml` で選択し、チェックサムと対象プラ�
 
 受理判定のリポジトリトークンはすべて読み取り専用です。Node／pnpm は `--locked`、依存は `--frozen-lockfile` でインストールします。コミット済みファイルの修復はしません。共通の検証ジョブは古い生成物を検出するため使い捨て checkout 内で再生成することがありますが、変更を公開せず失敗します。`verify-only: true` のため App 認証情報は不要です。
 
-共通ワークフローの更新側・検証側は、いずれも `sync-vite-plus` と `sync-declarations` を有効にします。同一の `lock-groups` で `mise.lock`、Node／pnpm、Linux x64・ARM64、`verify: regenerate` を指定します。両方とも[共通ワークフロー](https://github.com/maya0513/renovate-config/blob/1070616046be77fce7b54ff3d1eb36d7f3f2732e/.github/workflows/dependency-artifacts.yml)の同じ完全 SHA を参照し、Renovate がこれらと外部 Actions の SHA を更新します。
+共通ワークフローの更新側・検証側は、いずれも `sync-vite-plus` と `sync-declarations` を有効にします。同一の `lock-groups` で `mise.lock`、Node／pnpm、Linux x64・ARM64、`verify: regenerate` を指定します。両方とも[共通ワークフロー](https://github.com/maya0513/renovate-config/blob/0bfed18e17cdcff074edec7eaf386f998747819a/.github/workflows/dependency-artifacts.yml)の同じ完全 SHA を参照し、Renovate がこれらと外部 Actions の SHA を更新します。
 
 ローカルの `ci` は依存グラフとリポジトリ方針を検証します。再利用ワークフローは加えてクリーンな GitHub checkout で生成物を再生成するため、ローカル成功だけではこのリモートジョブの成功を確認できません。
 
 ## 依存更新
 
-[Renovate 設定](../renovate.json) は共通 preset と選択式の Vite+ preset を継承します。共通方針では、通常の更新は日本時間の火曜日、リリースから 7 日後以降に行います。SHA 更新や lockfile maintenance を含む非メジャー更新は必須検査後に自動マージでき、メジャー更新は手動レビューです。利用側の追加ルールで runner と共通ワークフロー参照の変更も手動レビューにし、共通ワークフロー参照にはリリース待機を適用しません。セキュリティ修正はスケジュール・リリース待機の対象外ですが、メジャー更新は引き続きレビューが必要です。脆弱性修正には Dependency graph と Dependabot alerts を使い、Dependabot のバージョン更新ワークフローは削除します。
+[Renovate 設定](../renovate.json) は共通 preset と、独立した選択式の mise-pnpm・Vite+ preset を継承します。共通方針では、通常の更新は日本時間の火曜日、リリースから 7 日後以降に行います。通常の Action SHA 更新や lockfile maintenance を含む非メジャー更新は必須検査後に自動マージでき、メジャー更新は手動レビューです。共通 default が runner と共通ワークフロー参照の変更も手動レビューにし、共通ワークフロー参照にはリリース待機を適用しません。セキュリティ修正はスケジュール・リリース待機の対象外ですが、メジャー更新は引き続きレビューが必要です。脆弱性修正には Dependency graph と Dependabot alerts を使い、Dependabot のバージョン更新ワークフローは削除します。
 
 通常の npm 宣言は、現在ロック済みの安定版を下限とするキャレット指定です。`rangeStrategy: update-lockfile` により範囲内は lockfile、範囲外は宣言も更新します。Node と pnpm は npm／mise をまたぐツール別グループで宣言を一緒に更新します。Node 型定義も、実行環境のメジャー変更をレビューするまで Node 24 系を維持します。通常 CI は新しいバージョンを探しません。
 
-Renovate 自身の mise 生成物更新・mise lock maintenance は無効にし、共通ワークフローへ委ねます。Node 単独グループも生成を省略します。一方、pnpm グループは Renovate による npm 生成を残します。`packageManager` を変えて pnpm の別 document の管理ツール lock を更新しないと、共通ワークフローの初回 frozen install が失敗するためです。この再現済みの例外と選択式の共通 preset 案は [renovate-config #3](https://github.com/maya0513/renovate-config/issues/3) に記録しています。共通側の変更をレビューして導入した後に、同等の利用側ルールを削除できます。
+mise-pnpm preset がRenovate 自身の mise 生成物更新・mise lock maintenance を無効にし、共通ワークフローへ委ねます。Node 単独グループも生成を省略します。一方、pnpm グループは Renovate による npm 生成を残します。`packageManager` を変えて pnpm の別 document の管理ツール lock を更新しないと、共通ワークフローの初回 frozen install が失敗するためです。npm の range 方針とレビュー方針は共通側に集約し、利用側には Node 型定義のメジャー制約を残します。古いpnpm管理用lockを更新モードで修復する機能は [renovate-config #3](https://github.com/maya0513/renovate-config/issues/3) の後続課題です。
 
 Vitest と Vite core の完全バージョンは Vite+ が選択します。coverage はその Vitest と完全一致させ、workspace override も Vitest と Vite core alias の完全指定にします。選択式 preset は coverage・Vitest・Vite core の npm による独立更新を止めます。同梱 Vitest のメジャー変更は互換性を明示的に確認するまで同期を失敗させます。関連パッケージの脆弱性に対して Vite+ が互換修正を提供していない場合も、手動判断が必要です。
 
