@@ -84,7 +84,7 @@ Vitest と Vite core の完全バージョンは Vite+ が選択します。cove
 
 **Allow auto-merge** を有効にし、main では GitHub Actions の `quality` を必須にして、**Require branches to be up to date before merging** を設定します。無人更新で管理者 bypass を許可しません。`quality` に生成物検証を含めるため、古い生成物では通過できません。`renovate/artifacts` は Renovate 自身の生成失敗時の status で、すべての PR にある検査ではないため、全 PR 共通の必須項目にしません。
 
-公開後は通常 CI・共通の検証ジョブに加え、実際の Renovate 修復コミットとその後の CI を確認します。App 登録、ローカルのモック、変更なしの同期実行だけでは自動更新・マージ全体の動作確認にはなりません。この再設計はまだ GitHub 上で検証していません。
+公開後は通常 CI・共通の検証ジョブに加え、実際の Renovate 修復コミットとその後の CI を確認します。App 登録、ローカルのモック、変更なしの同期実行だけでは自動更新・マージ全体の動作確認にはなりません。公開済みコミットの結果は最新の [Actions 実行](https://github.com/maya0513/gnome-wallpaper/actions/workflows/ci.yml)で確認します。App の修復動作とマージ保護は別途確認が必要です。
 
 ## 手動変更と失敗時の対応
 

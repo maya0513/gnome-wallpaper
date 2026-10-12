@@ -11,8 +11,8 @@ export default defineConfig({
       "ci-tools": "node scripts/install-ci-tools.ts",
       workflows: {
         command: [
-          ".cache/ci-tools/actionlint -shellcheck=.cache/ci-tools/shellcheck",
-          ".cache/ci-tools/zizmor --pedantic --offline .github/workflows",
+          "bash -euc '.cache/ci-tools/actionlint -shellcheck=.cache/ci-tools/shellcheck'",
+          "bash -euc '.cache/ci-tools/zizmor --pedantic --offline .github/workflows'",
         ],
         dependsOn: ["ci-tools"],
       },

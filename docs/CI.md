@@ -84,7 +84,7 @@ These may be repository settings or organization settings granted to this reposi
 
 Enable **Allow auto-merge** and protect main with the required `quality` check from GitHub Actions and **Require branches to be up to date before merging**. Do not permit unattended administrator bypass. Because `quality` includes artifact verification, stale generated files cannot pass the gate. Do not require `renovate/artifacts` globally: it is an error status that Renovate reports when its own generation fails, not a check present on every PR.
 
-After publication, confirm ordinary CI, the shared verification job, and a real Renovate repair commit followed by CI. App registration, local mocks, or a no-change synchronization run alone do not prove the entire automatic update/merge path works. This redesign has not yet been verified on GitHub.
+After publication, confirm ordinary CI, the shared verification job, and a real Renovate repair commit followed by CI. App registration, local mocks, or a no-change synchronization run alone do not prove the entire automatic update/merge path works. Check the latest [Actions run](https://github.com/maya0513/gnome-wallpaper/actions/workflows/ci.yml) for the published commit; App repair and merge protection require separate confirmation.
 
 ## Manual changes and failures
 
