@@ -120,36 +120,15 @@ describe("CI acceptance policy", () => {
     const config = document("renovate.json");
     expect(config.extends).toStrictEqual([
       "local>maya0513/renovate-config",
+      "local>maya0513/renovate-config//presets/mise-pnpm",
       "local>maya0513/renovate-config//presets/vite-plus",
     ]);
-    expect(config.mise).toStrictEqual({
-      skipArtifactsUpdate: true,
-      lockFileMaintenance: { enabled: false },
-    });
+    expect(config.mise).toBeUndefined();
     expect(config.packageRules).toStrictEqual([
-      { matchManagers: ["npm"], rangeStrategy: "update-lockfile" },
-      {
-        matchManagers: ["npm", "mise"],
-        matchDepNames: ["node"],
-        groupName: "Node.js runtime",
-        skipArtifactsUpdate: true,
-      },
-      {
-        matchManagers: ["npm", "mise"],
-        matchDepNames: ["pnpm"],
-        groupName: "pnpm package manager",
-      },
       {
         matchManagers: ["npm"],
         matchPackageNames: ["@types/node"],
         allowedVersions: ">=24.0.0 <25.0.0",
-      },
-      { matchDatasources: ["github-runners"], automerge: false },
-      {
-        matchManagers: ["github-actions"],
-        matchPackageNames: ["maya0513/renovate-config"],
-        automerge: false,
-        minimumReleaseAge: null,
       },
     ]);
     for (const path of [
