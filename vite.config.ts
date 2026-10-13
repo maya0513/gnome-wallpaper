@@ -8,11 +8,11 @@ export default defineConfig({
     tasks: {
       toolchain: "node scripts/toolchain.ts",
       "align-toolchain": "node scripts/toolchain.ts --align",
-      "ci-tools": "node scripts/install-ci-tools.ts",
+      "ci-tools": "mise install --locked actionlint shellcheck zizmor",
       workflows: {
         command: [
-          "bash -euc '.cache/ci-tools/actionlint -shellcheck=.cache/ci-tools/shellcheck'",
-          "bash -euc '.cache/ci-tools/zizmor --pedantic --offline .github/workflows'",
+          "mise exec -- actionlint -shellcheck=shellcheck",
+          "mise exec -- zizmor --pedantic --offline --strict-collection .github/workflows",
         ],
         dependsOn: ["ci-tools"],
       },

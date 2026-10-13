@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vite-plus/test";
@@ -20,6 +21,131 @@ const mapping = (value: unknown): Record<string, unknown> => {
 
 const ci = document(".github/workflows/ci.yml");
 const jobs = mapping(ci.jobs);
+const stepList = (value: unknown): Record<string, unknown>[] => {
+  const items = mapping(value).steps;
+  if (!Array.isArray(items)) {
+    throw new TypeError("Expected steps");
+  }
+  return items.map((item: unknown) => mapping(item));
+};
+const updater = document(".github/workflows/update-dependencies.yml");
+const references = (value: unknown): string[] => {
+  const { uses, steps: items = [] } = mapping(value);
+  if (!Array.isArray(items)) {
+    throw new TypeError("Expected steps");
+  }
+  return [uses, ...items.map((step: unknown) => mapping(step).uses)].flatMap((reference) =>
+    typeof reference === "string" ? [reference] : [],
+  );
+};
+
+const checkDependencyAutomation = (
+  check: Record<string, unknown>,
+  update: Record<string, unknown>,
+): void => {
+  const verify = mapping(mapping(check.jobs)["dependency-artifacts"]);
+  const prepare = mapping(mapping(update.jobs).prepare);
+  const publish = mapping(mapping(update.jobs).publish);
+  const prefix = "maya0513/renovate-config/.github/";
+  const names = ["mise-pnpm", "pnpm-viteplus", "pnpm-outputs"];
+  const components = (job: Record<string, unknown>) =>
+    stepList(job).filter((step) => typeof step.uses === "string" && step.uses.startsWith(prefix));
+  const [, revision] = String(components(verify)[0]?.uses).split("@");
+  assert.match(revision ?? "", /^[a-f0-9]{40}$/u, "Shared components require a full SHA");
+  for (const [job, mode] of [
+    [verify, "true"],
+    [prepare, "false"],
+  ] as const) {
+    assert.equal(job.secrets, undefined, "Preparation must not receive secrets");
+    assert.doesNotMatch(
+      JSON.stringify(job),
+      /secrets\./u,
+      "Preparation must not reference secrets",
+    );
+    assert.equal(job.permissions, undefined, "Preparation inherits read-only permissions");
+    const selected = components(job);
+    assert.deepEqual(
+      selected.map((step) => step.uses),
+      names.map((name) => `${prefix}actions/${name}@${revision}`),
+      "Shared component order and SHA must match",
+    );
+    assert.deepEqual(
+      selected.map((step) => step.id),
+      ["mise", "viteplus", "outputs"],
+      "Component IDs must connect",
+    );
+    assert.equal(mapping(selected[0]?.with)["verify-only"], mode, "Wrong verification mode");
+    assert.deepEqual(
+      JSON.parse(String(mapping(selected[0]?.with)["lock-groups"])),
+      [
+        {
+          lockfile: "mise.lock",
+          tools: ["actionlint", "node", "pnpm", "shellcheck", "zizmor"],
+          platforms: ["linux-x64", "linux-arm64"],
+          verify: "regenerate",
+        },
+      ],
+      "Lock groups must cover all tools and platforms identically",
+    );
+    assert.deepEqual(
+      selected[1]?.with,
+      {
+        "preparation-state": `\${{ steps.mise.outputs.state }}`,
+      },
+      "Vite+ preparation state must connect",
+    );
+    assert.deepEqual(
+      selected[2]?.with,
+      {
+        "mise-state": `\${{ steps.mise.outputs.state }}`,
+        "viteplus-state": `\${{ steps.viteplus.outputs.state }}`,
+      },
+      "Final validation states must connect",
+    );
+  }
+  assert.deepEqual(check.permissions, { contents: "read" }, "CI must remain read-only");
+  assert.deepEqual(update.permissions, { contents: "read" }, "Updates must remain read-only");
+  assert.equal(verify.if, undefined, "Verification must run for every CI event");
+  assert.equal(
+    prepare.if,
+    "github.event_name == 'push' && github.event.sender.id == 29139614 && startsWith(github.ref, 'refs/heads/renovate/')",
+    "Updates require a Mend Renovate branch push",
+  );
+  assert.deepEqual(
+    prepare.outputs,
+    {
+      base: `\${{ steps.outputs.outputs.base }}`,
+      changed: `\${{ steps.outputs.outputs.changed }}`,
+      "artifact-id": `\${{ steps.outputs.outputs.artifact-id }}`,
+    },
+    "Preparation outputs must connect",
+  );
+  assert.equal(publish.needs, "prepare", "Publish must depend on preparation");
+  assert.equal(
+    publish.uses,
+    `${prefix}workflows/publish-pnpm-artifacts.yml@${revision}`,
+    "Publisher SHA must match",
+  );
+  assert.deepEqual(
+    publish.with,
+    {
+      base: `\${{ needs.prepare.outputs.base }}`,
+      changed: `\${{ needs.prepare.outputs.changed }}`,
+      "artifact-id": `\${{ needs.prepare.outputs.artifact-id }}`,
+      mise: true,
+      viteplus: true,
+      "app-client-id": `\${{ vars.DEPENDENCY_ARTIFACTS_APP_CLIENT_ID }}`,
+    },
+    "Publishing outputs and component permissions must match",
+  );
+  assert.deepEqual(
+    publish.secrets,
+    {
+      "app-private-key": `\${{ secrets.DEPENDENCY_ARTIFACTS_APP_PRIVATE_KEY }}`,
+    },
+    "Only publishing receives App credentials",
+  );
+};
 
 describe("CI acceptance policy", () => {
   it("pins Node and pnpm patches and keeps their lockfile under version control", () => {
@@ -89,39 +215,55 @@ describe("CI acceptance policy", () => {
     expect(text).toContain("artifacts/gjs-integration.json");
     expect(text).toContain("artifacts/*.zip");
     for (const job of ["configuration", "static", "tests", "native"]) {
+      const jobSteps = stepList(jobs[job]);
+      expect(jobSteps[0]?.uses).toMatch(/^actions\/checkout@[a-f0-9]{40}$/u);
+      expect(mapping(jobSteps[0]?.with)["persist-credentials"]).toBe(false);
       expect(JSON.stringify(jobs[job])).toContain("jdx/mise-action@");
+      expect(JSON.stringify(jobs[job])).toContain("mise install --locked node pnpm");
+      expect(JSON.stringify(jobs[job])).toContain(
+        "mise exec node pnpm -- pnpm install --frozen-lockfile",
+      );
       expect(JSON.stringify(jobs[job])).not.toContain("mise upgrade");
-      expect(JSON.stringify(jobs[job])).toContain("mise install --locked");
-      expect(JSON.stringify(jobs[job])).toContain("pnpm install --frozen-lockfile");
     }
   });
 
   it("pins every external action and reusable workflow to a complete SHA", () => {
-    for (const name of readdirSync(".github/workflows").filter((file) => file.endsWith(".yml"))) {
-      const path = `.github/workflows/${name}`;
-      for (const job of Object.values(mapping(document(path).jobs))) {
-        const { steps = [], uses: reusable } = mapping(job);
-        if (!Array.isArray(steps)) {
-          throw new TypeError("Expected workflow steps");
-        }
-        const references = [reusable, ...steps.map((step: unknown) => mapping(step).uses)].filter(
-          (uses: unknown) => uses !== undefined,
-        );
-        for (const uses of references) {
-          expect(uses).toMatch(
-            /^[\w-]+\/[\w-]+(?:\/\.github\/workflows\/[\w.-]+\.yml)?@[a-f0-9]{40}$/u,
-          );
-        }
-      }
+    const workflowJobs = readdirSync(".github/workflows")
+      .filter((file) => /\.ya?ml$/u.test(file))
+      .flatMap((file) => Object.values(mapping(document(`.github/workflows/${file}`).jobs)));
+    for (const reference of workflowJobs.flatMap((value) => references(value))) {
+      expect(reference).toMatch(/^[\w-]+\/[\w-]+(?:\/[\w.-]+)*@[a-f0-9]{40}$/u);
     }
+  });
+
+  it("locks audit tools in mise and installs them only for configuration tasks", () => {
+    const tools = readFileSync("mise.toml", "utf8");
+    const lock = readFileSync("mise.lock", "utf8");
+    for (const name of ["actionlint", "shellcheck", "zizmor"]) {
+      const declaration = new RegExp(`^${name} = "(?<version>\\d+\\.\\d+\\.\\d+)"$`, "mu").exec(
+        tools,
+      );
+      expect(declaration?.groups?.version).toBeDefined();
+      expect(lock).toContain(`[[tools.${name}]]\nversion = "${declaration?.groups?.version}"`);
+    }
+    const config = readFileSync("vite.config.ts", "utf8");
+    expect(config).toContain('"ci-tools": "mise install --locked actionlint shellcheck zizmor"');
+    expect(config).toContain("mise exec -- actionlint -shellcheck=shellcheck");
+    expect(config).toContain(
+      "mise exec -- zizmor --pedantic --offline --strict-collection .github/workflows",
+    );
+    expect(config).toContain('dependsOn: ["ci-tools"]');
+    expect(existsSync("scripts/install-ci-tools.ts")).toBe(false);
+    expect(existsSync("scripts/check-actions.ts")).toBe(false);
+    expect(existsSync(".github/actions")).toBe(false);
   });
 
   it("inherits shared policy and lets Vite+ select its coupled dependencies", () => {
     const config = document("renovate.json");
     expect(config.extends).toStrictEqual([
-      "local>maya0513/renovate-config#0bfed18e17cdcff074edec7eaf386f998747819a",
-      "local>maya0513/renovate-config//presets/mise-pnpm#0bfed18e17cdcff074edec7eaf386f998747819a",
-      "local>maya0513/renovate-config//presets/vite-plus#0bfed18e17cdcff074edec7eaf386f998747819a",
+      "local>maya0513/renovate-config",
+      "local>maya0513/renovate-config//presets/mise-pnpm",
+      "local>maya0513/renovate-config//presets/viteplus",
     ]);
     expect(config.mise).toBeUndefined();
     expect(config.packageRules).toStrictEqual([
@@ -168,37 +310,152 @@ describe("CI acceptance policy", () => {
     expect(mapping(review?.with)["fail-on-severity"]).toBe("moderate");
   });
 
-  it("shares one artifact contract for verification and Renovate updates", () => {
-    const updater = document(".github/workflows/update-dependencies.yml");
+  it("connects read-only verification and Renovate preparation to a separate publisher", () => {
+    expect(() => {
+      checkDependencyAutomation(ci, updater);
+    }).not.toThrow();
     expect(mapping(updater.on)).toStrictEqual({ push: { branches: ["renovate/**"] } });
-    expect(mapping(updater.permissions)).toStrictEqual({ contents: "read" });
-    const update = mapping(mapping(updater.jobs)["dependency-artifacts"]);
-    const verify = mapping(jobs["dependency-artifacts"]);
-    expect(update.uses).toBe(verify.uses);
-    expect(update.uses).toMatch(
-      /^maya0513\/renovate-config\/\.github\/workflows\/dependency-artifacts\.yml@[a-f0-9]{40}$/u,
-    );
-    expect(mapping(update.with)).toStrictEqual({
-      ...mapping(verify.with),
-      "verify-only": false,
-      "app-client-id": `\${{ vars.DEPENDENCY_ARTIFACTS_APP_CLIENT_ID }}`,
+    expect(mapping(mapping(updater.jobs).prepare).concurrency).toStrictEqual({
+      group: `dependency-artifacts-\${{ github.ref }}`,
+      "cancel-in-progress": true,
     });
-    expect(mapping(verify.with)).toStrictEqual({
-      "verify-only": true,
-      "sync-vite-plus": true,
-      "sync-declarations": true,
-      "lock-groups":
-        '[{"lockfile":"mise.lock","tools":["node","pnpm"],"platforms":["linux-x64","linux-arm64"],"verify":"regenerate"}]',
-    });
-    expect(mapping(update.secrets)).toStrictEqual({
-      "app-private-key": `\${{ secrets.DEPENDENCY_ARTIFACTS_APP_PRIVATE_KEY }}`,
-    });
-    expect(verify.secrets).toBeUndefined();
-    expect(verify.if).toBeUndefined();
-    expect(update.steps).toBeUndefined();
-    expect(verify.steps).toBeUndefined();
-    expect(mapping(mapping(ci.on).pull_request)).toStrictEqual({ branches: ["main"] });
-    expect(JSON.stringify(jobs.static)).toContain("vp run toolchain");
+  });
+
+  const [, revision] = String(stepList(jobs["dependency-artifacts"])[2]?.uses).split("@");
+
+  it.each([
+    {
+      name: "missing component",
+      target: "ci",
+      before: "actions/pnpm-viteplus@",
+      after: "actions/other@",
+      error: "component order and SHA",
+    },
+    {
+      name: "mixed SHA",
+      target: "ci",
+      before: `pnpm-viteplus@${revision}`,
+      after: `pnpm-viteplus@${"a".repeat(40)}`,
+      error: "component order and SHA",
+    },
+    {
+      name: "unpinned SHA",
+      target: "ci",
+      before: `mise-pnpm@${revision}`,
+      after: "mise-pnpm@main",
+      error: "full SHA",
+    },
+    {
+      name: "wrong state",
+      target: "ci",
+      before: "steps.mise.outputs.state",
+      after: "steps.other.outputs.state",
+      error: "preparation state",
+    },
+    {
+      name: "missing final state",
+      target: "ci",
+      before: "viteplus-state:",
+      after: "missing-state:",
+      error: "Final validation states",
+    },
+    {
+      name: "wrong update mode",
+      target: "update",
+      before: 'verify-only: "false"',
+      after: 'verify-only: "true"',
+      error: "verification mode",
+    },
+    {
+      name: "wrong verification mode",
+      target: "ci",
+      before: 'verify-only: "true"',
+      after: 'verify-only: "false"',
+      error: "verification mode",
+    },
+    {
+      name: "different platforms",
+      target: "update",
+      before: '["linux-x64","linux-arm64"]',
+      after: '["linux-x64"]',
+      error: "Lock groups",
+    },
+    {
+      name: "omitted tool in both callers",
+      target: "both",
+      before: ',"shellcheck"',
+      after: "",
+      error: "Lock groups",
+    },
+    {
+      name: "verification secret",
+      target: "ci",
+      before: 'MISE_SAFE: "1"',
+      after: `TOKEN: \${{ secrets.PRIVATE_KEY }}`,
+      error: "reference secrets",
+    },
+    {
+      name: "preparation secret",
+      target: "update",
+      before: 'MISE_SAFE: "1"',
+      after: `TOKEN: \${{ secrets.PRIVATE_KEY }}`,
+      error: "reference secrets",
+    },
+    {
+      name: "inherited preparation secrets",
+      target: "update",
+      before: '    env:\n      MISE_SAFE: "1"',
+      after: '    secrets: inherit\n    env:\n      MISE_SAFE: "1"',
+      error: "receive secrets",
+    },
+    {
+      name: "wrong sender",
+      target: "update",
+      before: "github.event.sender.id == 29139614",
+      after: "true",
+      error: "Mend Renovate",
+    },
+    {
+      name: "wrong preparation output",
+      target: "update",
+      before: `base: \${{ steps.outputs.outputs.base }}`,
+      after: "base: wrong",
+      error: "Preparation outputs",
+    },
+    {
+      name: "wrong publishing dependency",
+      target: "update",
+      before: "needs: prepare",
+      after: "needs: other",
+      error: "depend on preparation",
+    },
+    {
+      name: "wrong publishing artifact",
+      target: "update",
+      before: `artifact-id: \${{ needs.prepare.outputs.artifact-id }}`,
+      after: "artifact-id: wrong",
+      error: "Publishing outputs",
+    },
+    {
+      name: "wrong publishing permission",
+      target: "update",
+      before: "viteplus: true",
+      after: "viteplus: false",
+      error: "component permissions",
+    },
+  ])("rejects $name", ({ target, before, after, error }) => {
+    const checkText = readFileSync(".github/workflows/ci.yml", "utf8");
+    const updateText = readFileSync(".github/workflows/update-dependencies.yml", "utf8");
+    const change = (text: string): Record<string, unknown> => {
+      expect(text).toContain(before);
+      const parsed: unknown = parse(text.replace(before, after));
+      return mapping(parsed);
+    };
+    const check = target === "update" ? structuredClone(ci) : change(checkText);
+    const update = target === "ci" ? structuredClone(updater) : change(updateText);
+    expect(() => {
+      checkDependencyAutomation(check, update);
+    }).toThrow(error);
   });
 });
 

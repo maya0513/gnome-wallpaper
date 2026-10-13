@@ -18,13 +18,34 @@ defaults:
     shell: bash
 jobs:
   dependency-artifacts:
-    uses: maya0513/renovate-config/.github/workflows/dependency-artifacts.yml@0bfed18e17cdcff074edec7eaf386f998747819a # main
-    with:
-      verify-only: true
-      sync-vite-plus: true
-      sync-declarations: true
-      lock-groups: >-
-        [{"lockfile":"mise.lock","tools":["node","pnpm"],"platforms":["linux-x64","linux-arm64"],"verify":"regenerate"}]
+    name: dependency-artifacts
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    env:
+      MISE_SAFE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          install: false
+          cache: false
+      - id: mise
+        uses: maya0513/renovate-config/.github/actions/mise-pnpm@51775e2b77381182358d48695fa0fc8dbfe0fa42 # main
+        with:
+          verify-only: "true"
+          lock-groups: >-
+            [{"lockfile":"mise.lock","tools":["actionlint","node","pnpm","shellcheck","zizmor"],"platforms":["linux-x64","linux-arm64"],"verify":"regenerate"}]
+      - id: viteplus
+        uses: maya0513/renovate-config/.github/actions/pnpm-viteplus@51775e2b77381182358d48695fa0fc8dbfe0fa42 # main
+        with:
+          preparation-state: ${{ steps.mise.outputs.state }}
+      - id: outputs
+        uses: maya0513/renovate-config/.github/actions/pnpm-outputs@51775e2b77381182358d48695fa0fc8dbfe0fa42 # main
+        with:
+          mise-state: ${{ steps.mise.outputs.state }}
+          viteplus-state: ${{ steps.viteplus.outputs.state }}
   configuration:
     name: configuration
     runs-on: ubuntu-26.04
@@ -45,20 +66,20 @@ jobs:
       - name: Install the locked Node and pnpm versions
         run: mise install --locked node pnpm
       - name: Install the exact locked dependencies
-        run: mise exec -- pnpm install --frozen-lockfile
+        run: mise exec node pnpm -- pnpm install --frozen-lockfile
       - name: Record tool versions
         run: |
           {
             echo '### Toolchain'
             mise --version
-            mise exec -- node --version
-            mise exec -- pnpm --version
-            mise exec -- pnpm exec vp --version
+            mise exec node pnpm -- node --version
+            mise exec node pnpm -- pnpm --version
+            mise exec node pnpm -- pnpm exec vp --version
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Validate Actions, shell, and dependency policy
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: mise exec -- pnpm exec vp run configuration
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise exec node pnpm -- pnpm exec vp run configuration
   static:
     name: static
     runs-on: ubuntu-26.04
@@ -74,20 +95,20 @@ jobs:
       - name: Install the locked Node and pnpm versions
         run: mise install --locked node pnpm
       - name: Install the exact locked dependencies
-        run: mise exec -- pnpm install --frozen-lockfile
+        run: mise exec node pnpm -- pnpm install --frozen-lockfile
       - name: Record tool versions
         run: |
           {
             echo '### Toolchain'
             mise --version
-            mise exec -- node --version
-            mise exec -- pnpm --version
-            mise exec -- pnpm exec vp --version
+            mise exec node pnpm -- node --version
+            mise exec node pnpm -- pnpm --version
+            mise exec node pnpm -- pnpm exec vp --version
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Check strict lint, formatting, types, and toolchain compatibility
         run: |
-          mise exec -- pnpm exec vp run toolchain
-          mise exec -- pnpm exec vp run static
+          mise exec node pnpm -- pnpm exec vp run toolchain
+          mise exec node pnpm -- pnpm exec vp run static
   tests:
     name: tests
     runs-on: ubuntu-26.04
@@ -103,18 +124,18 @@ jobs:
       - name: Install the locked Node and pnpm versions
         run: mise install --locked node pnpm
       - name: Install the exact locked dependencies
-        run: mise exec -- pnpm install --frozen-lockfile
+        run: mise exec node pnpm -- pnpm install --frozen-lockfile
       - name: Record tool versions
         run: |
           {
             echo '### Toolchain'
             mise --version
-            mise exec -- node --version
-            mise exec -- pnpm --version
-            mise exec -- pnpm exec vp --version
+            mise exec node pnpm -- node --version
+            mise exec node pnpm -- pnpm --version
+            mise exec node pnpm -- pnpm exec vp --version
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Require 100% coverage for every application source file
-        run: mise exec -- pnpm exec vp run coverage
+        run: mise exec node pnpm -- pnpm exec vp run coverage
       - name: Upload test and coverage reports, including failures
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -140,15 +161,15 @@ jobs:
       - name: Install the locked Node and pnpm versions
         run: mise install --locked node pnpm
       - name: Install the exact locked dependencies
-        run: mise exec -- pnpm install --frozen-lockfile
+        run: mise exec node pnpm -- pnpm install --frozen-lockfile
       - name: Record tool versions
         run: |
           {
             echo '### Toolchain'
             mise --version
-            mise exec -- node --version
-            mise exec -- pnpm --version
-            mise exec -- pnpm exec vp --version
+            mise exec node pnpm -- node --version
+            mise exec node pnpm -- pnpm --version
+            mise exec node pnpm -- pnpm exec vp --version
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Install native test and ZIP tools
         run: |
@@ -156,7 +177,7 @@ jobs:
           sudo apt-get install --no-install-recommends -y gjs gir1.2-soup-3.0 gsettings-desktop-schemas libglib2.0-bin zip unzip
           gjs --version >> "$GITHUB_STEP_SUMMARY"
       - name: Build, test in real GJS, validate the ZIP, and measure size
-        run: mise exec -- pnpm exec vp run native
+        run: mise exec node pnpm -- pnpm exec vp run native
       - name: Upload native and size reports, including failures
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

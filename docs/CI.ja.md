@@ -10,12 +10,12 @@ CI はコミット済みの依存グラフと拡張のパッケージを検証�
 
 ```sh
 mise install --locked node pnpm
-mise exec -- pnpm install --frozen-lockfile
-mise exec -- pnpm exec vp run format
-mise exec -- pnpm exec vp run ci
+mise exec node pnpm -- pnpm install --frozen-lockfile
+mise exec node pnpm -- pnpm exec vp run format
+mise exec node pnpm -- pnpm exec vp run ci
 ```
 
-Node と pnpm は `mise.toml` で選択し、チェックサムと対象プラットフォームを `mise.lock` に記録します。Renovate の依存生成でも同じツールを使うよう、`package.json` の `engines.node` と `packageManager` にそれぞれ完全バージョンを記載し、CI で一致を検証します。`pmOnFail: error` により、pnpm が別バージョンを自動取得したり不一致のまま実行したりすることを防ぎます。記録する環境は Linux x64・ARM64、受理判定ジョブが実行される環境は現在 Linux x64 です。
+Node と pnpm は `mise.toml` で選択し、チェックサムと対象プラットフォームを `mise.lock` に記録します。`package.json` の `engines.node` と `packageManager` にそれぞれ完全バージョンを記載し、mise の宣言との一致を CI で検証します。Renovate は npm 生成時の Node を別に選択するため、宣言の一致だけではその実行バージョンまで検証できません。`pmOnFail: error` により、pnpm が別バージョンを自動取得したり不一致のまま実行したりすることを防ぎます。記録する環境は Linux x64・ARM64、受理判定ジョブが実行される環境は現在 Linux x64 です。
 
 タスクの主な入口は Vite tasks です。package scripts と mise tasks は置きません。ネイティブ検証には GJS、Soup 3 の introspection、デスクトップの GSettings schema、`glib-compile-schemas`、`zip`、`unzip` が必要です。アプリは GJS 向け ESM とし、minify せずパッケージ化します。
 
@@ -32,42 +32,44 @@ Node と pnpm は `mise.toml` で選択し、チェックサムと対象プラ�
 | `align-toolchain` | Vite+ 由来の宣言・lockfile を明示的に同期し、検証                               |
 | `ci`              | ローカルの受理判定全体                                                          |
 
-ワークフローの検査には actionlint、ShellCheck、zizmor を使います。インストーラーは公式 release の SHA-256 digest を照合し、宣言したメジャー内のツールだけを受け入れます。zizmor は pinning の例外を設けず `--pedantic --offline` で実行します。GitHub のリモート情報を必要とする監査は対象外です。
+ワークフローの検査には actionlint、ShellCheck、zizmor を使います。完全バージョンを `mise.toml`、Linux x64・ARM64 向けのダウンロード URL とチェックサムを `mise.lock` に記録します。`ci-tools` タスクがワークフロー検査前に 3 ツールを `--locked` でインストールし、ほかの受理判定ジョブは Node／pnpm だけをインストールします。workflow 内の Bash は actionlint 経由で ShellCheck に渡します。zizmor は pinning の例外を設けず `--pedantic --offline` で実行し、GitHub のリモート情報を必要とする監査は対象外です。ツール更新は CI 実行時の最新版取得ではなく、Renovate とコミット済み lock の変更で行います。
 
 ## GitHub の受理判定
 
 [CI](../.github/workflows/ci.yml) は main への push、main 向け PR、merge group、手動実行に対応します。作成者や変更パスによる除外はなく、人・Renovate・共通 App のすべてのコミットを同じ条件で検証します。
 
-| ジョブ                 | 役割                                                                                              |
-| ---------------------- | ------------------------------------------------------------------------------------------------- |
-| `dependency-artifacts` | 共通ワークフローの検証モード。mise lock の再生成と Vite+ 生成物の整合性を検証し、差分があれば失敗 |
-| `configuration`        | ワークフロー構文・セキュリティ・方針の検証と、PR の moderate 以上の依存脆弱性検査                 |
-| `static`               | ツールチェーン、厳格な lint、フォーマット、型検査                                                 |
-| `tests`                | 単体・境界テストとファイル単位 100% のアプリカバレッジ                                            |
-| `native`               | ビルド、実 GJS テスト、ZIP・schema 検証、サイズ計測                                               |
-| `quality`              | 常に実行し、先行する 5 ジョブすべての成功を要求                                                   |
+| ジョブ                 | 役割                                                                                      |
+| ---------------------- | ----------------------------------------------------------------------------------------- |
+| `dependency-artifacts` | 共通部品の検証モード。mise lock の再生成と Vite+ 生成物の整合性を検証し、差分があれば失敗 |
+| `configuration`        | ワークフロー構文・セキュリティ・方針の検証と、PR の moderate 以上の依存脆弱性検査         |
+| `static`               | ツールチェーン、厳格な lint、フォーマット、型検査                                         |
+| `tests`                | 単体・境界テストとファイル単位 100% のアプリカバレッジ                                    |
+| `native`               | ビルド、実 GJS テスト、ZIP・schema 検証、サイズ計測                                       |
+| `quality`              | 常に実行し、先行する 5 ジョブすべての成功を要求                                           |
 
 受理判定のリポジトリトークンはすべて読み取り専用です。Node／pnpm は `--locked`、依存は `--frozen-lockfile` でインストールします。コミット済みファイルの修復はしません。共通の検証ジョブは古い生成物を検出するため使い捨て checkout 内で再生成することがありますが、変更を公開せず失敗します。`verify-only: true` のため App 認証情報は不要です。
 
-共通ワークフローの更新側・検証側は、いずれも `sync-vite-plus` と `sync-declarations` を有効にします。同一の `lock-groups` で `mise.lock`、Node／pnpm、Linux x64・ARM64、`verify: regenerate` を指定します。両方とも[共通ワークフロー](https://github.com/maya0513/renovate-config/blob/0bfed18e17cdcff074edec7eaf386f998747819a/.github/workflows/dependency-artifacts.yml)の同じ完全 SHA を参照し、Renovate がこれらと外部 Actions の SHA を更新します。
+configuration・static・tests・native は独立した checkout と並列実行を維持します。mise の準備、Node／pnpm の locked install、依存の frozen install、バージョンの summary 出力を各 workflow に直接記述します。`mise exec node pnpm --` により暗黙のインストールを実行環境のツールに限定します。ネイティブツールの準備、各検査、レポートの保存はそれぞれのジョブが担当します。
 
-ローカルの `ci` は依存グラフとリポジトリ方針を検証します。再利用ワークフローは加えてクリーンな GitHub checkout で生成物を再生成するため、ローカル成功だけではこのリモートジョブの成功を確認できません。
+更新・検証の workflow に、共通の `mise-pnpm` → `pnpm-viteplus` → `pnpm-outputs` を直接記述します。mise の準備 state を Vite+ に渡し、両方の state を最終検証へ渡します。両方の `lock-groups` は同じ値とし、`mise.lock`、actionlint／Node／pnpm／ShellCheck／zizmor、Linux x64・ARM64、`verify: regenerate` を指定します。最初の部品へ CI では文字列の `verify-only: "true"`、更新時は `"false"` を明示し、後続部品は state からモードを引き継ぎます。CI 方針テストでは設定を意図的に壊し、混在 SHA、state や公開出力の誤接続、ツール欠落、準備処理への認証情報混入も拒否することを確認します。
+
+共通の 3 action と公開専用ワークフローは同じ完全 SHA に固定し、Renovate がまとめて手動レビュー対象として更新します。[共通側の接続仕様](https://github.com/maya0513/renovate-config/blob/51775e2b77381182358d48695fa0fc8dbfe0fa42/docs/presets-and-workflows.md)を参照してください。ローカルの `ci` は依存グラフとリポジトリ方針を検証します。GitHub の検証ジョブは加えてクリーンな checkout で生成物を再生成するため、ローカル成功だけではこのリモートジョブの成功を確認できません。
 
 ## 依存更新
 
-[Renovate 設定](../renovate.json) は共通 preset と、独立した選択式の mise-pnpm・Vite+ preset を継承します。共通方針では、通常の更新は日本時間の火曜日、リリースから 7 日後以降に行います。通常の Action SHA 更新や lockfile maintenance を含む非メジャー更新は必須検査後に自動マージでき、メジャー更新は手動レビューです。共通 default が runner と共通ワークフロー参照の変更も手動レビューにし、共通ワークフロー参照にはリリース待機を適用しません。セキュリティ修正はスケジュール・リリース待機の対象外ですが、メジャー更新は引き続きレビューが必要です。脆弱性修正には Dependency graph と Dependabot alerts を使い、Dependabot のバージョン更新ワークフローは削除します。
+[Renovate 設定](../renovate.json) は共通 preset と、独立した選択式の `mise-pnpm`・`viteplus` preset を継承します。共通方針では、通常の更新は日本時間の火曜日、リリースから 7 日後以降に行います。通常の Action SHA 更新や lockfile maintenance を含む非メジャー更新は必須検査後に自動マージでき、メジャー更新は手動レビューです。共通 default が runner と共通 action・ワークフロー参照の変更も手動レビューにし、共通 action・ワークフロー参照にはリリース待機を適用しません。セキュリティ修正はスケジュール・リリース待機の対象外ですが、メジャー更新は引き続きレビューが必要です。脆弱性修正には Dependency graph と Dependabot alerts を使い、Dependabot のバージョン更新ワークフローは削除します。
 
 通常の npm 宣言は、現在ロック済みの安定版を下限とするキャレット指定です。`rangeStrategy: update-lockfile` により範囲内は lockfile、範囲外は宣言も更新します。Node と pnpm は npm／mise をまたぐツール別グループで宣言を一緒に更新します。Node 型定義も、実行環境のメジャー変更をレビューするまで Node 24 系を維持します。通常 CI は新しいバージョンを探しません。
 
-mise-pnpm preset がRenovate 自身の mise 生成物更新・mise lock maintenance を無効にし、共通ワークフローへ委ねます。Node 単独グループも生成を省略します。一方、pnpm グループは Renovate による npm 生成を残します。`packageManager` を変えて pnpm の別 document の管理ツール lock を更新しないと、共通ワークフローの初回 frozen install が失敗するためです。npm の range 方針とレビュー方針は共通側に集約し、利用側には Node 型定義のメジャー制約を残します。古いpnpm管理用lockを更新モードで修復する機能は [renovate-config #3](https://github.com/maya0513/renovate-config/issues/3) の後続課題です。
+mise-pnpm preset がRenovate 自身の mise 生成物更新・mise lock maintenance を無効にし、共通部品へ委ねます。Node 単独グループも生成を省略します。一方、pnpm グループは Renovate による npm 生成を残します。`packageManager` を変えて pnpm の別 document の管理ツール lock を更新しないと、共通部品の初回 frozen install が失敗するためです。共通部品は古い pnpm 管理用メタデータを修復しません。初回 frozen install が失敗する場合は、先に Renovate の生成結果とログを確認します。npm の range 方針とレビュー方針は共通側に集約し、利用側には Node 型定義のメジャー制約を残します。
 
 Vitest と Vite core の完全バージョンは Vite+ が選択します。coverage はその Vitest と完全一致させ、workspace override も Vitest と Vite core alias の完全指定にします。選択式 preset は coverage・Vitest・Vite core の npm による独立更新を止めます。同梱 Vitest のメジャー変更は互換性を明示的に確認するまで同期を失敗させます。関連パッケージの脆弱性に対して Vite+ が互換修正を提供していない場合も、手動判断が必要です。
 
-[依存生成物の更新](../.github/workflows/update-dependencies.yml)は、パスを限定せず `renovate/**` への push で同じ共通ワークフローの更新モードを呼びます。共通側がこのブランチ接頭辞と Mend Renovate sender（ID `29139614`）を検証します。
+[依存生成物の更新](../.github/workflows/update-dependencies.yml)は、パスを限定せず `renovate/**` への push を受け付けます。`prepare` ジョブはこのブランチ接頭辞と Mend Renovate sender（ID `29139614`）の場合だけ実行し、ブランチ単位で同時実行を制御します。共通部品も更新イベントを独立して検証します。
 
 1. 読み取り専用の準備ジョブが mise lock を再生成し、選択済み Vite+ の依存グラフを同期します。同期中は依存 script、pnpm hook、パッケージマネージャーの自動切り替えを無効にします。無関係な依存変更、Vitest の重複、alias や宣言の不一致は失敗させます。
-2. 準備時の SHA と正確な binary patch を、同じ run の保持期間 1 日の artifact で受け渡します。
-3. 別の公開ジョブが許可パスと通常ファイルであることを確認し、1 コミットを作り、Contents write のリポジトリ限定 App token を取得します。候補依存のインストール・実行はしません。
+2. 準備ジョブは `base`・`changed`・不変の `artifact-id` を出力します。同じ run の保持期間 1 日の artifact に正確な binary patch と manifest を格納します。検証モードや差分がない場合は payload を upload しません。
+3. 別の公開ジョブが 3 出力を `publish-pnpm-artifacts.yml` に渡し、`mise: true`・`viteplus: true` を明示して公開を許可します。公開側は不変の artifact ID で取得し、manifest・許可パス・通常ファイルであることを確認してから、1 コミットを作り、Contents write のリポジトリ限定 App token を取得します。候補依存のインストール・実行はしません。
 4. 準備時の正確な SHA を lease にして既存の Renovate ブランチへ push します。ブランチが進んでいたら、新しい変更を上書きせず失敗します。
 5. App の push が修正後コミットの PR CI を起動します。sender が Renovate ではなくなるため、修復を繰り返しません。
 
@@ -75,7 +77,7 @@ Vitest と Vite core の完全バージョンは Vite+ が選択します。cove
 
 ## 認証とマージ保護
 
-登録済みの Renovate App と共通 GitHub App を使います。修復側の caller は次を参照します。
+登録済みの Renovate App と共通 GitHub App を使います。公開ジョブだけに次を渡します。
 
 - Actions 変数 `DEPENDENCY_ARTIFACTS_APP_CLIENT_ID`。
 - Actions Secret `DEPENDENCY_ARTIFACTS_APP_PRIVATE_KEY`。
@@ -88,12 +90,12 @@ Vitest と Vite core の完全バージョンは Vite+ が選択します。cove
 
 ## 手動変更と失敗時の対応
 
-実行環境を更新するときは `mise.toml` と対応する `package.json` のフィールドを一緒に変更し、`mise lock --platform linux-x64,linux-arm64 node pnpm` を実行します。選択したツールで pnpm lockfile も再生成します。Vite+ を選び直して lockfile を更新したら、次を実行します。
+実行環境を更新するときは `mise.toml` と対応する `package.json` のフィールドを一緒に変更し、`mise lock --platform linux-x64,linux-arm64 actionlint node pnpm shellcheck zizmor` を実行します。監査ツールのバージョンを変更した場合も同じ mise lock を再生成します。Node／pnpm または npm 依存を変更した場合は、選択したツールで pnpm lockfile も再生成します。Vite+ を選び直して lockfile を更新したら、次を実行します。
 
 ```sh
-mise exec -- pnpm exec vp run align-toolchain
-mise exec -- pnpm exec vp run format
-mise exec -- pnpm exec vp run ci
+mise exec node pnpm -- pnpm exec vp run align-toolchain
+mise exec node pnpm -- pnpm exec vp run format
+mise exec node pnpm -- pnpm exec vp run ci
 ```
 
 同期タスクは coverage 宣言と override を完全指定へ書き換え、non-frozen install の後に frozen install を行います。新しい Node プロセスで、Vite+ と無関係な直接・間接依存が変わっていないことを検証します。失敗後にファイル変更が残ることがあるため、差分を確認して原因を直してからコミットします。競合を lockfile の全削除や検証の無効化で解消しないでください。
