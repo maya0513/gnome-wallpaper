@@ -119,9 +119,9 @@ describe("CI acceptance policy", () => {
   it("inherits shared policy and lets Vite+ select its coupled dependencies", () => {
     const config = document("renovate.json");
     expect(config.extends).toStrictEqual([
-      "local>maya0513/renovate-config",
-      "local>maya0513/renovate-config//presets/mise-pnpm",
-      "local>maya0513/renovate-config//presets/vite-plus",
+      "local>maya0513/renovate-config#0bfed18e17cdcff074edec7eaf386f998747819a",
+      "local>maya0513/renovate-config//presets/mise-pnpm#0bfed18e17cdcff074edec7eaf386f998747819a",
+      "local>maya0513/renovate-config//presets/vite-plus#0bfed18e17cdcff074edec7eaf386f998747819a",
     ]);
     expect(config.mise).toBeUndefined();
     expect(config.packageRules).toStrictEqual([
