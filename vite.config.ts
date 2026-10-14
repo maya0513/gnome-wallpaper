@@ -27,6 +27,11 @@ export default defineConfig({
       coverage: "vp test run --coverage",
       bundle: ["vp pack", "node scripts/package.ts"],
       integration: { command: "node scripts/test-gjs.ts", dependsOn: ["bundle"] },
+      gnome: { command: "node scripts/test-gnome.ts nested", dependsOn: ["validate"] },
+      "gnome-headless": {
+        command: "node scripts/test-gnome.ts headless",
+        dependsOn: ["validate"],
+      },
       size: { command: measureSize, dependsOn: ["bundle"] },
       validate: { command: "node scripts/validate-package.ts", dependsOn: ["bundle"] },
       native: {
@@ -192,6 +197,8 @@ export default defineConfig({
       },
       { files: ["src/gjs.ts"], rules: { "no-await-in-loop": "off" } },
       { files: ["src/controller.ts"], rules: { "no-await-in-loop": "off" } },
+      // Polling, ordered screenshots, and shared keyfile updates must be sequential.
+      { files: ["scripts/test-gnome.ts"], rules: { "no-await-in-loop": "off" } },
     ],
     ignorePatterns: ["dist/**", "artifacts/**", ".cache/**", "coverage/**"],
   },

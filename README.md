@@ -6,6 +6,10 @@ A fresh wallpaper every day, from Bing. GNOME Wallpaper changes your background 
 
 It works with **GNOME Shell 50**, with the same photo for light and dark themes.
 
+![A Bing photograph used as the wallpaper, with the panel menu showing its title, credit, and next update time](images/daily-wallpaper-menu.png)
+
+An actual GNOME Shell 50 session. Open the wallpaper icon in the top panel for photo information, choose **Refresh now** to update, or open **Preferences** to change the region and resolution. Photographs come from Bing, with credits displayed in the menu.
+
 ## What you can do
 
 - Let your wallpaper update each day, or choose **Refresh now** whenever you like.
@@ -15,7 +19,9 @@ It works with **GNOME Shell 50**, with the same photo for light and dark themes.
 
 ## Getting started
 
-This is an early development version. Automated checks pass, but it has not yet been tested on a running GNOME desktop. A release and installation guide will follow after that testing.
+This is an early development version. In addition to automated checks, a separate GNOME Shell 50 session can verify live Bing retrieval, wallpaper rendering, and panel information. A release and regular installation guide are still pending.
+
+In a development environment, use `just gnome` to open a desktop and try the extension. See [Local GNOME smoke testing](docs/GNOME.md) for prerequisites and instructions.
 
 Once installed, enable **Daily Wallpaper** in your extension manager. It fetches the latest photo automatically.
 

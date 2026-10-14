@@ -6,6 +6,7 @@ const STALE_RECHECK = 3_600_000;
 const RETRY_INITIAL = 900_000;
 const RETRY_MAX = 21_600_000;
 const RETENTION_DAYS = 7;
+const MINUTE_STAMP_LENGTH = 12;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const text = (value: unknown): value is string => typeof value === "string" && value.length > 0;
@@ -28,7 +29,11 @@ export const parseBing = (input: unknown, config: Config): Result<Wallpaper> => 
   ) {
     return { ok: false, error: "Incomplete Bing image information" };
   }
-  const stamp = image.fullstartdate;
+  // Bing publishes minute precision; retain support for second-precision archives.
+  const stamp =
+    image.fullstartdate.length === MINUTE_STAMP_LENGTH
+      ? `${image.fullstartdate}00`
+      : image.fullstartdate;
   if (
     !/^\d{14}$/u.test(stamp) ||
     !image.urlbase.startsWith("/th?id=OHR.") ||

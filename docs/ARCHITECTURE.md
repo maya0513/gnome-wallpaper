@@ -24,7 +24,7 @@ The core does not import GNOME or Node APIs. `ImageSource` allows another provid
 
 The defaults are `market = ja-JP` and `resolution = UHD`; the other resolution is `1920x1080`.
 
-The Bing provider requests `https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=<encoded-market>` and parses the first image. Tests specify rejection of malformed UTF-8, JSON, missing fields, impossible dates, and unexpected URL prefixes. `fullstartdate` is interpreted as UTC and must round-trip as a valid calendar timestamp. Image paths must begin with `/th?id=OHR.` and the information link with `https://www.bing.com/`. These are prefix checks, not a general URL security proof.
+The Bing provider requests `https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=<encoded-market>` and parses the first image. Tests specify rejection of malformed UTF-8, JSON, missing fields, impossible dates, and unexpected URL prefixes. `fullstartdate` accepts 12-digit minute precision or 14-digit second precision, is interpreted as UTC, and must round-trip as a valid calendar timestamp. Image paths must begin with `/th?id=OHR.` and the information link with `https://www.bing.com/`. These are prefix checks, not a general URL security proof.
 
 Image identity includes the market, requested resolution, and encoded URL base. The selected-resolution URL is built from the base; the fallback is the normal image URL supplied in the response. A missing title uses the copyright text. Metadata parsing and network failures become `{ ok: false, error }` results.
 
@@ -75,7 +75,7 @@ All executable `src/**/*.ts` files, including UI, entry points, adapters, and un
 
 The [native test](../tests/integration/gjs.ts), launched by [test-gjs.ts](../scripts/test-gjs.ts), runs the actual core, provider, controller, and adapters with real GJS, Soup, and Gio. A local HTTP server, temporary directory, and memory GSettings exercise UHD fallback, cache reuse, indexed cleanup and protection, conditional restoration, invalid metadata, HTTP errors, native network/storage cancellation, and schema defaults/writes. Selected ES2025 APIs are also exercised. The HTTP fixture uses synthetic bytes; it does not verify decoding/displaying a real photograph or Bing's live responses.
 
-Local verification has passed with GJS 1.88.0. Live Bing, installation, real panel/preferences behavior, wallpaper display, and lock-screen operation remain unverified. There is no release or deployment in this iteration. GitHub CI runs on Ubuntu 26.04; current results and reports are available in [Actions](https://github.com/maya0513/gnome-wallpaper/actions). Repository protection and automerge settings must be checked separately. Check the latest published commit’s Actions results for remote verification; App repair and repository protection require separate confirmation.
+Local verification has passed with GJS 1.88.0. [Local GNOME smoke testing](GNOME.md) launches a GNOME Shell 50 session with the production ZIP extracted into temporary storage. Headless mode checks live Bing retrieval and decoding, GNOME background loading, both wallpaper URIs, panel information, and screenshots. Nested mode opens a desktop for manual interaction. OS login/lock behavior, regular installation, and distribution are outside these tests. GitHub CI runs on Ubuntu 26.04; current results and reports are available in [Actions](https://github.com/maya0513/gnome-wallpaper/actions). App repair and repository protection require separate confirmation.
 
 ## Build, tasks, and artifact size
 

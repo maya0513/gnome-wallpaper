@@ -50,6 +50,15 @@ describe("Bing image information", () => {
     expect(result.ok && result.value.url).toContain("_1920x1080.jpg");
   });
 
+  it("accepts Bing's minute-precision publication timestamp", () => {
+    // Observed from the live ja-JP archive on 2026-10-14.
+    const result = parseBing(
+      { images: [{ ...payload.images[0], fullstartdate: "202610131500" }] },
+      config,
+    );
+    expect(result.ok && result.value.publishedAt).toBe(Date.UTC(2026, 9, 13, 15));
+  });
+
   it.each([
     null,
     [],
@@ -62,9 +71,15 @@ describe("Bing image information", () => {
     ...["fullstartdate", "urlbase", "url", "copyright", "copyrightlink"].flatMap((key) =>
       [undefined, 12, ""].map((value) => ({ images: [{ ...payload.images[0], [key]: value }] })),
     ),
-    ...["20260231000000", "20261301000000", "x20261006000000", "20261006250000"].map(
-      (fullstartdate) => ({ images: [{ ...payload.images[0], fullstartdate }] }),
-    ),
+    ...[
+      "20260231000000",
+      "20261301000000",
+      "x20261006000000",
+      "20261006250000",
+      "202602310000",
+      "20261013150",
+      "2026101315000",
+    ].map((fullstartdate) => ({ images: [{ ...payload.images[0], fullstartdate }] })),
     { images: [{ ...payload.images[0], urlbase: "https://evil.example/image" }] },
     { images: [{ ...payload.images[0], url: "//evil.example/image" }] },
     { images: [{ ...payload.images[0], copyrightlink: "javascript:alert(1)" }] },
