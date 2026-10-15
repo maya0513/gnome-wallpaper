@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { isMap, parseAllDocuments, parseDocument } from "yaml";
 
 const require = createRequire(import.meta.url);
@@ -34,25 +34,21 @@ const manifest = (path: string) => {
   };
 };
 const packagePath = (name: string, from: NodeJS.Require = require): string => {
-  try {
-    return from.resolve(`${name}/package.json`);
-  } catch {
-    let directory = dirname(from.resolve(name));
-    while (directory !== dirname(directory)) {
-      try {
-        const path = join(directory, "package.json");
-        if (manifest(path).name === name) {
-          return path;
-        }
-      } catch (error) {
-        if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") {
-          throw error;
-        }
+  // Read installed manifests independently of exports without executing package code.
+  for (const directory of from.resolve.paths(name) ?? []) {
+    const path = join(directory, name, "package.json");
+    try {
+      manifest(path);
+      return realpathSync(path);
+    } catch (error) {
+      if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") {
+        throw error;
       }
-      directory = dirname(directory);
     }
-    throw new Error(`Cannot resolve package manifest: ${name}`);
   }
+  throw Object.assign(new Error(`Cannot resolve package manifest: ${name}`), {
+    code: "MODULE_NOT_FOUND",
+  });
 };
 const declarations = ["package.json", "pnpm-workspace.yaml"];
 const readDeclarations = () => declarations.map((path) => readFileSync(path, "utf8"));
@@ -70,7 +66,12 @@ const unrelated = () => {
     try {
       path = realpathSync(packagePath(name, from));
     } catch (error) {
-      if (optional) {
+      if (
+        optional &&
+        error instanceof Error &&
+        "code" in error &&
+        error.code === "MODULE_NOT_FOUND"
+      ) {
         return;
       }
       throw error;

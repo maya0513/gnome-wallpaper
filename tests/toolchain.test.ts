@@ -74,6 +74,35 @@ const runToolchain = (options: Record<string, boolean> = {}) => {
       });
       writeFileSync(join(directory, "node_modules/other/index.js"), "export {};\n");
     }
+    if (options.esm === true || options.dataOnly === true) {
+      packageFile("transitive", {
+        name: "transitive",
+        version: "1.0.0",
+        type: "module",
+        exports: {
+          ".": options.dataOnly === true ? { types: "./index.d.ts" } : { import: "./index.js" },
+        },
+      });
+      writeFileSync(
+        join(directory, "node_modules/transitive/index.js"),
+        'throw new Error("Dependency must not execute");\n',
+      );
+    }
+    if (options.optional === true || options.optionalMalformed === true) {
+      packageFile("other", {
+        name: "other",
+        version: "1.0.0",
+        dependencies: { transitive: "1.0.0" },
+        optionalDependencies: { optional: "1.0.0" },
+      });
+      if (options.optionalMalformed === true) {
+        packageFile("optional", { name: "optional", version: "1.0.0" });
+        writeFileSync(join(directory, "node_modules/optional/package.json"), "{");
+      }
+    }
+    if (options.missing === true) {
+      rmSync(join(directory, "node_modules/transitive"), { recursive: true });
+    }
     if (options.instances === true) {
       mkdirSync(join(directory, "node_modules/@vitest/coverage-v8/node_modules/vitest"), {
         recursive: true,
@@ -138,6 +167,31 @@ it("aligns dependencies whose exports hide package.json", () => {
   const result = runToolchain({ align: true, exports: true });
   expect(result.status).toBe(0);
   expect(result.output).toContain("verified a single Vitest / coverage 5.0.1 resolution");
+});
+
+it.each(["esm", "dataOnly"])(
+  "aligns dependencies with %s exports without executing them",
+  (kind) => {
+    const result = runToolchain({ align: true, [kind]: true });
+    expect(result.status).toBe(0);
+    expect(result.output).toContain("verified a single Vitest / coverage 5.0.1 resolution");
+  },
+);
+
+it("allows absent optional dependencies", () => {
+  expect(runToolchain({ align: true, optional: true }).status).toBe(0);
+});
+
+it("rejects malformed optional dependency manifests", () => {
+  const result = runToolchain({ align: true, optionalMalformed: true });
+  expect(result.status).toBe(1);
+  expect(result.output).toContain("SyntaxError");
+});
+
+it("rejects missing required dependencies", () => {
+  const result = runToolchain({ align: true, missing: true });
+  expect(result.status).toBe(1);
+  expect(result.output).toContain("Cannot resolve package manifest: transitive");
 });
 
 it("aligns exact declarations and overrides while retaining unrelated settings", () => {

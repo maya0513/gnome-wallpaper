@@ -53,7 +53,7 @@ configuration・static・tests・native は独立した checkout と並列実行
 
 更新・検証の workflow に、共通の `mise-pnpm` → `pnpm-viteplus` → `pnpm-outputs` を直接記述します。mise の準備 state を Vite+ に渡し、両方の state を最終検証へ渡します。両方の `lock-groups` は同じ値とし、`mise.lock`、actionlint／Node／pnpm／ShellCheck／zizmor、Linux x64・ARM64、`verify: regenerate` を指定します。最初の部品へ CI では文字列の `verify-only: "true"`、更新時は `"false"` を明示し、後続部品は state からモードを引き継ぎます。CI 方針テストでは設定を意図的に壊し、混在 SHA、state や公開出力の誤接続、ツール欠落、準備処理への認証情報混入も拒否することを確認します。
 
-共通の 3 action と公開専用ワークフローは同じ完全 SHA に固定し、Renovate がまとめて手動レビュー対象として更新します。[共通側の接続仕様](https://github.com/maya0513/renovate-config/blob/51775e2b77381182358d48695fa0fc8dbfe0fa42/docs/presets-and-workflows.md)を参照してください。ローカルの `ci` は依存グラフとリポジトリ方針を検証します。GitHub の検証ジョブは加えてクリーンな checkout で生成物を再生成するため、ローカル成功だけではこのリモートジョブの成功を確認できません。
+共通の 3 action と公開専用ワークフローは同じ完全 SHA に固定し、Renovate がまとめて手動レビュー対象として更新します。[共通側の接続仕様](https://github.com/maya0513/renovate-config/blob/ecbede8750f082d85e4b99f12e384133e4fc1724/docs/presets-and-workflows.md)を参照してください。ローカルの `ci` は依存グラフとリポジトリ方針を検証します。GitHub の検証ジョブは加えてクリーンな checkout で生成物を再生成するため、ローカル成功だけではこのリモートジョブの成功を確認できません。
 
 ## 依存更新
 
