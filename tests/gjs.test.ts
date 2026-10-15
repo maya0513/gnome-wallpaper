@@ -13,6 +13,7 @@ import GLib, { timers } from "./mocks/glib";
 import { response, session } from "./mocks/soup";
 
 const image = {
+  source: "bing" as const,
   id: "ja-JP/UHD/%",
   publishedAt: 1,
   title: "Autumn",

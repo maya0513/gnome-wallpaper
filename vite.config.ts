@@ -120,13 +120,21 @@ export default defineConfig({
     overrides: [
       {
         // Uint8Array is the native IO payload; all domain records remain readonly.
-        files: ["src/core.ts", "src/model.ts", "src/bing.ts", "src/controller.ts"],
+        files: [
+          "src/core.ts",
+          "src/model.ts",
+          "src/bing.ts",
+          "src/nasa.ts",
+          "src/self.ts",
+          "src/sources.ts",
+          "src/controller.ts",
+        ],
         rules: {
           "typescript/prefer-readonly-parameter-types": ["error", { allow: ["Uint8Array"] }],
         },
       },
       {
-        files: ["src/core.ts", "src/model.ts"],
+        files: ["src/core.ts", "src/model.ts", "src/nasa.ts", "src/sources.ts", "src/self.ts"],
         rules: {
           "no-restricted-imports": [
             "error",
@@ -196,7 +204,10 @@ export default defineConfig({
         },
       },
       { files: ["src/gjs.ts"], rules: { "no-await-in-loop": "off" } },
-      { files: ["src/controller.ts"], rules: { "no-await-in-loop": "off" } },
+      {
+        files: ["src/controller.ts", "src/self.ts", "src/self-gjs.ts"],
+        rules: { "no-await-in-loop": "off" },
+      },
       // Polling, ordered screenshots, and shared keyfile updates must be sequential.
       { files: ["scripts/test-gnome.ts"], rules: { "no-await-in-loop": "off" } },
     ],
@@ -217,6 +228,8 @@ export default defineConfig({
     reporters: ["default", ["junit", { outputFile: "artifacts/unit-tests.xml" }]],
     alias: {
       "gi://Gio": "/tests/mocks/gio.ts",
+      "gi://GdkPixbuf?version=2.0": "/tests/mocks/pixbuf.ts",
+      "resource:///org/gnome/shell/misc/loginManager.js": "/tests/mocks/login.ts",
       "gi://GLib": "/tests/mocks/glib.ts",
       "gi://Soup?version=3.0": "/tests/mocks/soup.ts",
       "gi://St": "/tests/mocks/shell.ts",
@@ -240,25 +253,65 @@ export default defineConfig({
   pack: [
     {
       entry: { extension: "src/extension.ts", prefs: "src/prefs.ts" },
+      plugins: [
+        {
+          name: "bundled-dependency-list",
+          generateBundle(_options, bundle) {
+            const modules = Object.values(bundle).flatMap((chunk) =>
+              chunk.type === "chunk"
+                ? Object.keys(chunk.modules).filter(
+                    (id) => (chunk.modules[id]?.renderedLength ?? 0) > 0,
+                  )
+                : [],
+            );
+            const paths = [
+              ...new Set(
+                modules.flatMap((id) => {
+                  const path = /^(?<path>.*\/node_modules\/(?:@[^/]+\/)?[^/]+)/u.exec(id)?.groups
+                    ?.path;
+                  return path === undefined ? [] : [path];
+                }),
+              ),
+            ].toSorted();
+            this.emitFile({
+              type: "asset",
+              fileName: "bundled-dependencies.json",
+              source: JSON.stringify(paths),
+            });
+          },
+        },
+      ],
       platform: "neutral",
+      inputOptions: { resolve: { mainFields: ["module", "main"] } },
+      failOnWarn: true,
       target: "es2025",
       format: ["esm"],
       outExtensions: () => ({ js: ".js" }),
       dts: false,
       minify: false,
       sourcemap: false,
-      deps: { neverBundle: [/^gi:\/\//u, /^resource:\/\//u] },
+      deps: {
+        alwaysBundle: [/.*/u],
+        onlyBundle: false,
+        neverBundle: [/^gi:\/\//u, /^resource:\/\//u],
+      },
     },
     {
       entry: { test: "tests/integration/gjs.ts" },
       outDir: ".cache/gjs",
       platform: "neutral",
+      inputOptions: { resolve: { mainFields: ["module", "main"] } },
+      failOnWarn: true,
       target: "es2025",
       format: ["esm"],
       outExtensions: () => ({ js: ".js" }),
       dts: false,
       sourcemap: false,
-      deps: { neverBundle: [/^gi:\/\//u, /^resource:\/\//u, /^system$/u] },
+      deps: {
+        alwaysBundle: [/.*/u],
+        onlyBundle: false,
+        neverBundle: [/^gi:\/\//u, /^resource:\/\//u, /^system$/u],
+      },
     },
   ],
 });

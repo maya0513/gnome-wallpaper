@@ -4,14 +4,14 @@ import Soup from "gi://Soup?version=3.0";
 import type { Background, CacheEntry, Cancellation, Ports, Storage } from "./model";
 
 const tokens = new WeakMap<Cancellation, Gio.Cancellable>();
-const native = (token: Cancellation): Gio.Cancellable => {
+export const native = (token: Cancellation): Gio.Cancellable => {
   const cancellable = tokens.get(token);
   if (cancellable === undefined) {
     throw new Error("Invalid cancellation token");
   }
   return cancellable;
 };
-const perform = <T>(
+export const perform = <T>(
   start: (callback: (source: unknown, result: Gio.AsyncResult) => void) => void,
   finish: (result: Gio.AsyncResult) => T,
 ): Promise<T> =>
@@ -24,7 +24,7 @@ const perform = <T>(
       }
     });
   });
-const matches = (cause: unknown, code: number): boolean =>
+export const matches = (cause: unknown, code: number): boolean =>
   cause instanceof GLib.Error && cause.matches(Gio.io_error_quark(), code);
 export const createCancellation = (): Cancellation => {
   const token = new Gio.Cancellable();

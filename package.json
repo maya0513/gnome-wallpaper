@@ -4,6 +4,11 @@
   "private": true,
   "license": "MIT",
   "type": "module",
+  "dependencies": {
+    "entities": "^8.1.0",
+    "fast-xml-parser": "^5.11.2",
+    "fast-xml-validator": "^1.4.2"
+  },
   "devDependencies": {
     "@girs/gjs": "^4.9.0",
     "@girs/gnome-shell": "^50.0.4",

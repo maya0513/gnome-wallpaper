@@ -15,6 +15,7 @@ it("isolates settings and files while keeping only the host sockets needed for D
     DISPLAY: ":0",
     DBUS_SESSION_BUS_ADDRESS: "host-bus",
     GSETTINGS_BACKEND: "dconf",
+    GIO_USE_VFS: "gvfs",
     GSETTINGS_SCHEMA_DIR: "/host/schemas",
     DCONF_PROFILE: "/host/profile",
     GNOME_SHELL_SESSION_MODE: "ubuntu",
@@ -29,6 +30,7 @@ it("isolates settings and files while keeping only the host sockets needed for D
     XDG_DATA_HOME: "/test/data",
     XDG_RUNTIME_DIR: "/test/runtime",
     GSETTINGS_BACKEND: "keyfile",
+    GIO_USE_VFS: "local",
     WAYLAND_DISPLAY: "/host/runtime/wayland-0",
     PIPEWIRE_REMOTE: "/host/runtime/pipewire-0",
     GNOME_SHELL_SESSION_MODE: "user",
@@ -97,11 +99,13 @@ it.each(["load failure", "interruption"])(
     const bin = join(root, "bin");
     await mkdir(bin);
     await Promise.all(
-      ["gnome-shell", "dbus-run-session", "gsettings", "unzip", "gjs"].map(async (name) => {
-        const path = join(bin, name);
-        await writeFile(path, fixtureProgram);
-        await chmod(path, 0o755);
-      }),
+      ["gnome-shell", "dbus-run-session", "gsettings", "unzip", "gjs", "fusermount3"].map(
+        async (name) => {
+          const path = join(bin, name);
+          await writeFile(path, fixtureProgram);
+          await chmod(path, 0o755);
+        },
+      ),
     );
     // Child CLI fixtures use native ESM without changing the repository's package.
     await writeFile(join(root, "package.json"), '{"type":"module"}');
@@ -112,6 +116,7 @@ it.each(["load failure", "interruption"])(
         PATH: `${bin}:${process.env.PATH}`,
         FIXTURE_ROOT: root,
         FIXTURE_FAIL: scenario === "load failure" ? "1" : "0",
+        GNOME_WALLPAPER_TEST_SOURCE: "nasa-iotd",
       },
       stdio: "pipe",
     });
@@ -154,6 +159,7 @@ it.each(["load failure", "interruption"])(
         join(root, "artifacts/gnome/headless", String(runs[0]), "result.json"),
       );
       expect(result.ok).toBe(false);
+      expect(result.source).toBe("nasa-iotd");
       expect(result.error).toContain(
         scenario === "interruption" ? "Interrupted" : "fixture load failure",
       );

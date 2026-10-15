@@ -1,6 +1,30 @@
 import type * as ChildProcesses from "node:child_process";
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { promisify } from "node:util";
 import { isAbsolute, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+
+export const createEnvironmentRoot = (): Promise<string> =>
+  mkdtemp(join(tmpdir(), "gnome-wallpaper-"));
+
+export const cleanupEnvironment = async (root: string): Promise<void> => {
+  // Document Portal and GVfs can leave FUSE mounts after the private bus exits.
+  // Unmount only this run's mounts; never traverse it during removal.
+  const mounts = await readFile("/proc/self/mountinfo", "utf8");
+  await Promise.all(
+    ["doc", "gvfs"].map(async (name) => {
+      const path = join(root, "runtime", name);
+      if (
+        mounts.split("\n").some((line) => line.includes(` ${path} `) && line.includes(" - fuse."))
+      ) {
+        await promisify(execFile)("fusermount3", ["-u", path], { timeout: 5000 });
+      }
+    }),
+  );
+  await rm(root, { recursive: true, force: true });
+};
 
 export const isolatedEnvironment = (
   root: string,
@@ -36,6 +60,8 @@ export const isolatedEnvironment = (
   env.GSETTINGS_BACKEND = "keyfile";
   env.GNOME_SHELL_SESSION_MODE = "user";
   env.GTK_USE_PORTAL = "0";
+  // Local folders need no GVfs network discovery helpers in the private session.
+  env.GIO_USE_VFS = "local";
   if (
     mode === "nested" &&
     typeof parent.WAYLAND_DISPLAY === "string" &&
@@ -51,7 +77,28 @@ export const isolatedEnvironment = (
   return env;
 };
 
-export const stopGroup = async (child: ChildProcesses.ChildProcess): Promise<void> => {
+const groupHasLiveProcesses = async (group: number): Promise<boolean> => {
+  const entries = await readdir("/proc");
+  const members = await Promise.all(
+    entries
+      .filter((name) => /^\d+$/u.test(name))
+      .map(async (name) => {
+        try {
+          const stat = await readFile(`/proc/${name}/stat`, "utf8");
+          const [state, , processGroup] = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+          return Number(processGroup) === group && state !== "Z" && state !== "X";
+        } catch (error) {
+          if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+            return false;
+          }
+          throw error;
+        }
+      }),
+  );
+  return members.some(Boolean);
+};
+
+export const stopGroup = async (child: Pick<ChildProcesses.ChildProcess, "pid">): Promise<void> => {
   const { pid } = child;
   if (pid === undefined) {
     return;
@@ -67,5 +114,23 @@ export const stopGroup = async (child: ChildProcesses.ChildProcess): Promise<voi
   };
   kill("SIGTERM");
   await delay(750);
-  kill("SIGKILL");
+  try {
+    kill("SIGKILL");
+  } catch (error) {
+    // A dying sandboxed helper can reject group signals even after its bus exits.
+    // Only tolerate that race after proving no live member remains.
+    if (
+      !(
+        error instanceof Error &&
+        "code" in error &&
+        (error.code === "EACCES" || error.code === "EPERM")
+      )
+    ) {
+      throw error;
+    }
+    await delay(750);
+    if (await groupHasLiveProcesses(pid)) {
+      throw error;
+    }
+  }
 };

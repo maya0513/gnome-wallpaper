@@ -10,7 +10,7 @@ import {
   errorMessage,
 } from "../src/core";
 
-export const config = { market: "ja-JP", resolution: "UHD" as const };
+export const config = { source: "bing" as const, market: "ja-JP", resolution: "UHD" as const };
 export const payload = {
   images: [
     {
@@ -31,6 +31,7 @@ describe("Bing image information", () => {
     expect(result).toStrictEqual({
       ok: true,
       value: {
+        source: "bing",
         id: imageKey(config, "/th?id=OHR.Autumn_JA-JP123"),
         publishedAt,
         title: "Autumn scenery",

@@ -2,8 +2,10 @@ import { it, expect, describe, vi } from "vite-plus/test";
 
 import { createController } from "../src/controller";
 import type { CacheEntry, Cancellation, Config, Ports, View, Wallpaper } from "../src/model";
+import { nextSelfRefresh } from "../src/self";
 
 const image: Wallpaper = {
+  source: "bing",
   id: "today",
   publishedAt: Date.UTC(2026, 9, 6),
   title: "Autumn",
@@ -18,7 +20,7 @@ const entry: CacheEntry = {
   publishedAt: image.publishedAt,
   uri: "file:///today.jpg",
 };
-const settings: Config = { market: "ja-JP", resolution: "UHD" };
+const settings: Config = { source: "bing" as const, market: "ja-JP", resolution: "UHD" };
 const deferred = <T>() => {
   let resolveValue!: (value: T) => void;
   let rejectValue!: (error: Error) => void;
@@ -35,6 +37,7 @@ const setup = () => {
   const timers: { callback: () => void; stop: ReturnType<typeof vi.fn<() => void>> }[] = [];
   const cancellations: Cancellation[] = [];
   const ports: Ports = {
+    selfSelection: { read: () => ["", ""], write: vi.fn() },
     source: { latest: vi.fn(async () => ({ ok: true as const, value: image })) },
     download: vi.fn(async () => new Uint8Array([1, 2, 3])),
     storage: {
@@ -89,6 +92,106 @@ const setup = () => {
   };
 };
 
+describe("self wallpapers", () => {
+  it("applies self URIs directly without touching HTTP, cache or image files and persists after applying", async () => {
+    const s = setup();
+    s.configure({ ...settings, source: "self" });
+    const own = {
+      source: "self" as const,
+      title: "photo.png",
+      copyright: "User-provided image",
+      uri: "file:///self/photo.png",
+      selection: ["photo.png", "2026-10-06"] as const,
+    };
+    vi.mocked(s.ports.source.latest).mockResolvedValue({ ok: true, value: own });
+    await s.controller.refresh();
+    expect(s.current()).toStrictEqual({ light: own.uri, dark: own.uri });
+    expect(s.ports.storage.load).not.toHaveBeenCalled();
+    expect(s.ports.storage.save).not.toHaveBeenCalled();
+    expect(s.ports.storage.remove).not.toHaveBeenCalled();
+    expect(s.ports.download).not.toHaveBeenCalled();
+    expect(s.ports.selfSelection.write).toHaveBeenCalledWith(own.selection);
+    expect(s.views.at(-1)?.nextAt).toBe(nextSelfRefresh(image.publishedAt));
+    s.controller.disable();
+    expect(s.current()).toStrictEqual(before);
+  });
+
+  it("does not advance self state on wallpaper application failure", async () => {
+    const s = setup();
+    s.configure({ ...settings, source: "self" });
+    vi.mocked(s.ports.source.latest).mockResolvedValue({
+      ok: true,
+      value: {
+        source: "self",
+        title: "photo.png",
+        copyright: "",
+        uri: "file:///self/photo.png",
+        selection: ["photo.png", "2026-10-06"],
+      },
+    });
+    vi.mocked(s.ports.background.write).mockImplementation(() => {
+      throw new Error("rejected");
+    });
+    await s.controller.refresh();
+    expect(s.ports.selfSelection.write).not.toHaveBeenCalled();
+    expect(s.views.at(-1)?.error).toBe("rejected");
+  });
+
+  it("discards a self result after switching to an online source", async () => {
+    const s = setup();
+    s.configure({ ...settings, source: "self" });
+    const pending = deferred<{ ok: true; value: Wallpaper }>();
+    vi.mocked(s.ports.source.latest).mockReturnValueOnce(pending.promise);
+    const old = s.controller.refresh();
+    await vi.waitFor(() => {
+      expect(s.ports.source.latest).toHaveBeenCalledOnce();
+    });
+    s.configure(settings);
+    await s.controller.reconfigure();
+    pending.resolve({
+      ok: true,
+      value: {
+        source: "self",
+        title: "old.png",
+        copyright: "",
+        uri: "file:///self/old.png",
+        selection: ["old.png", "2026-10-06"],
+      },
+    });
+    await old;
+    expect(s.ports.selfSelection.write).not.toHaveBeenCalled();
+    expect(s.current()).toStrictEqual({ light: entry.uri, dark: entry.uri });
+    expect(s.cancellations[0]?.cancelled()).toBe(true);
+  });
+
+  it("keeps the self wallpaper and selection when a rescan finds no usable images", async () => {
+    const s = setup();
+    s.configure({ ...settings, source: "self" });
+    vi.mocked(s.ports.source.latest).mockResolvedValueOnce({
+      ok: true,
+      value: {
+        source: "self",
+        title: "photo.png",
+        copyright: "",
+        uri: "file:///self/photo.png",
+        selection: ["photo.png", "2026-10-06"],
+      },
+    });
+    await s.controller.refresh();
+    vi.mocked(s.ports.source.latest).mockResolvedValue({ ok: false, error: "No readable images" });
+    await s.controller.refresh();
+    expect(s.current()).toStrictEqual({
+      light: "file:///self/photo.png",
+      dark: "file:///self/photo.png",
+    });
+    expect(s.ports.selfSelection.write).toHaveBeenCalledOnce();
+    expect(s.views.at(-1)?.error).toBe("No readable images");
+    expect(s.ports.schedule).toHaveBeenLastCalledWith(900_000, expect.any(Function));
+    expect(s.ports.download).not.toHaveBeenCalled();
+    expect(s.ports.storage.load).not.toHaveBeenCalled();
+  });
+});
+
 describe("wallpaper update lifecycle", () => {
   it("applies both themes after downloading, saving, and recording and schedules the next update", async () => {
     const s = setup();
@@ -133,6 +236,10 @@ describe("wallpaper update lifecycle", () => {
   it("retries download failures at normal resolution", async () => {
     const s = setup();
     s.configure({ ...settings, resolution: "1920x1080" });
+    vi.mocked(s.ports.source.latest).mockResolvedValue({
+      ok: true,
+      value: { ...image, fallbackUrl: null },
+    });
     vi.mocked(s.ports.download).mockRejectedValue("offline");
     await s.controller.refresh();
     expect(s.ports.download).toHaveBeenCalledOnce();
@@ -154,6 +261,51 @@ describe("wallpaper update lifecycle", () => {
     await s.controller.refresh();
     expect(s.views.at(-1)?.nextAt).toBe(image.publishedAt + 900_000);
     expect(s.views.at(-1)?.image).toStrictEqual(image);
+  });
+
+  it.each(["bing", "nasa-iotd"] as const)(
+    "cancels an in-flight result when switching to %s and keeps the wallpaper on failure",
+    async (source) => {
+      const s = setup();
+      s.configure({ ...settings, source: source === "bing" ? "nasa-iotd" : "bing" });
+      await s.controller.refresh();
+      const applied = s.current();
+      const pending = deferred<Awaited<ReturnType<Ports["source"]["latest"]>>>();
+      vi.mocked(s.ports.source.latest).mockReturnValueOnce(pending.promise);
+      const old = s.controller.refresh();
+      await vi.waitFor(() => {
+        expect(s.ports.source.latest).toHaveBeenCalledTimes(2);
+      });
+      s.configure({ ...settings, source });
+      vi.mocked(s.ports.source.latest).mockResolvedValueOnce({
+        ok: false,
+        error: "No suitable image",
+      });
+      await s.controller.reconfigure();
+      const renders = s.views.length;
+      pending.resolve({ ok: true, value: { ...image, id: "obsolete" } });
+      await old;
+      expect(s.cancellations[1]?.cancelled()).toBe(true);
+      expect(s.current()).toStrictEqual(applied);
+      expect(s.views).toHaveLength(renders);
+      expect(s.views.at(-1)?.error).toBe("No suitable image");
+    },
+  );
+
+  it("keeps the applied Bing wallpaper when a NASA original download fails, without fallback", async () => {
+    const s = setup();
+    await s.controller.refresh();
+    const applied = s.current();
+    s.configure({ ...settings, source: "nasa-iotd" });
+    vi.mocked(s.ports.source.latest).mockResolvedValue({
+      ok: true,
+      value: { ...image, source: "nasa-iotd", id: "nasa-iotd-3", fallbackUrl: null },
+    });
+    vi.mocked(s.ports.download).mockClear().mockRejectedValue(new Error("NASA offline"));
+    await s.controller.reconfigure();
+    expect(s.ports.download).toHaveBeenCalledOnce();
+    expect(s.current()).toStrictEqual(applied);
+    expect(s.views.at(-1)?.error).toBe("NASA offline");
   });
 
   it.each(["load", "save", "record"] as const)(

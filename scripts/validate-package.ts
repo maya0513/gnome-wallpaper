@@ -18,6 +18,7 @@ try {
     "prefs.js",
     "metadata.json",
     "LICENSE",
+    "THIRD_PARTY_LICENSES.txt",
     "schemas/gschemas.compiled",
     "schemas/org.gnome.shell.extensions.gnome-wallpaper.gschema.xml",
   ]) {
@@ -25,7 +26,7 @@ try {
   }
   assert.ok(
     entries.every((file) =>
-      /^(?:[^/]+\.js|metadata\.json|LICENSE|schemas\/(?:gschemas\.compiled|org\.gnome\.shell\.extensions\.gnome-wallpaper\.gschema\.xml)?)$/u.test(
+      /^(?:[^/]+\.js|metadata\.json|LICENSE|THIRD_PARTY_LICENSES\.txt|schemas\/(?:gschemas\.compiled|org\.gnome\.shell\.extensions\.gnome-wallpaper\.gschema\.xml)?)$/u.test(
         file,
       ),
     ),
@@ -48,6 +49,17 @@ try {
     names.filter((name) => name.endsWith(".js")).map((name) => readFile(join(temp, name), "utf8")),
   );
   const all = sources.join("\n");
+  const notices = await readFile(join(temp, "THIRD_PARTY_LICENSES.txt"), "utf8");
+  assert.ok(notices.includes("fast-xml-parser") && notices.includes("entities"));
+  for (const match of all.matchAll(
+    /^(?:import(?:\s+[^;\n]+?\s+from)?|export\s+[^;\n]+?\s+from)\s*["'](?<specifier>[^"']+)["']/gmu,
+  )) {
+    assert.match(
+      String(match.groups?.specifier),
+      /^(?:gi:\/\/|resource:\/\/\/|\.\/)/u,
+      "Unbundled runtime dependency",
+    );
+  }
   assert.ok(
     all.includes("gi://Gio") && all.includes("resource:///org/gnome/shell/extensions/extension.js"),
   );

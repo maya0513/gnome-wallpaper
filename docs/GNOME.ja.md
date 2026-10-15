@@ -2,13 +2,14 @@
 
 [English](GNOME.md)
 
-普段のデスクトップに拡張をインストールせず、ビルドした製品用 ZIP を別の GNOME Shell 50 セッションで実行します。人間向けには画面付きのネスト環境、AI エージェント向けには画像と実行結果を保存するヘッドレス環境を用意しています。両方とも実際の Bing に接続する、ローカル専用の動作確認です。
+普段のデスクトップに拡張をインストールせず、ビルドした製品用 ZIP を別の GNOME Shell 50 セッションで実行します。人間向けには画面付きのネスト環境、AI エージェント向けには画像と実行結果を保存するヘッドレス環境を用意しています。両方とも Bing／NASA の実画像、または専用 self フォルダーのテスト画像を使う、ローカル専用の動作確認です。
 
 ## 必要なもの
 
 - リポジトリで指定した Node／pnpm と、インストール済みの開発依存。
 - GNOME Shell **50**、GJS、Gio／GdkPixbuf／Soup 3／GTK 4／Adwaita 1 の introspection、GNOME の GSettings schema。
-- `dbus-run-session`、`gsettings`、`glib-compile-schemas`、`zip`、`unzip`。
+- WebP の GdkPixbuf ローダー。Ubuntu 26.04 では `webp-pixbuf-loader`（GdkPixbuf introspection は `gir1.2-gdkpixbuf-2.0`）。
+- `dbus-run-session`、`gsettings`、`glib-compile-schemas`、`zip`、`unzip`、`fusermount3`（Document Portal の一時マウントの後始末用。Ubuntu では `fuse3`）。
 - 人間向けコマンドには `just`。未導入なら下記の Vite タスクを直接実行できます。AI 向けコマンドでは不要です。
 - ネスト版は Wayland のデスクトップセッション、動作中の PipeWire、`/usr/libexec/mutter-devkit` も必要です。Ubuntu 26.04 では Devkit を `mutter-dev-bin` パッケージが提供します。
 
@@ -24,14 +25,19 @@ just gnome
 pnpm exec vp run gnome
 ```
 
-毎回ビルドと ZIP 検証を行い、一時的な配置先へ展開して拡張を有効にします。既定値は `ja-JP`／UHD です。画像取得を確認すると端末に `Bing image ready` と表示し、画面を開いたままにします。起動時にアクティビティ画面が表示された場合は Super キーで閉じます。
+毎回ビルドと ZIP 検証を行い、一時的な配置先へ展開して拡張を有効にします。既定値は Bing／`ja-JP`／UHD です。`GNOME_WALLPAPER_TEST_SOURCE=nasa-iotd just gnome` で NASA を初期選択できます。環境変数はテスト用で、製品には追加しません。画像取得を確認すると端末に `bing image ready` と表示し、画面を開いたままにします。起動時にアクティビティ画面が表示された場合は Super キーで閉じます。
 
 手動で確認する項目：
 
 1. 写真が壁紙に表示されること。
 2. 上部パネルの壁紙アイコンから、タイトル・出典・次回確認時刻が読めること。
 3. **Refresh now** で更新できること。
-4. **Preferences** が開き、Market／Resolution を変更すると更新されること。
+4. **Preferences** が開き、Source を NASA にすると Bing の項目が操作不可になり、横長の NASA 写真へ更新されること。
+5. Source を Bing に戻すと写真と項目の操作が戻ること。Market／Resolution の変更でも更新されること。
+
+6. Source を **My images** にすると、専用 self フォルダーの保存先・説明・**Open folder** が表示されること。ボタンで専用フォルダーが開くこと。画像を置いて **Refresh now** を押すと名前順の先頭が表示され、同日の再押下では進まないこと。
+
+`GNOME_WALLPAPER_TEST_SOURCE=self just gnome` では、専用フォルダーへ JPEG・PNG・WebP と破損画像のフィクスチャを配置して起動します。通常の self フォルダーには触れません。
 
 Devkit のウィンドウを閉じるか、起動した端末で Ctrl+C を押すと終了します。Ctrl+C は終了コード130と `Interrupted` を記録します。JSON の成功は起動・画像取得の確認を表し、手動チェックすべての完了を意味しません。
 
@@ -39,9 +45,13 @@ Devkit のウィンドウを閉じるか、起動した端末で Ctrl+C を押�
 
 ```sh
 pnpm exec vp run gnome-headless
+# NASA の実画像を確認
+GNOME_WALLPAPER_TEST_SOURCE=nasa-iotd pnpm exec vp run gnome-headless
+# 専用 self フォルダーの画像を確認（通信不要）
+GNOME_WALLPAPER_TEST_SOURCE=self pnpm exec vp run gnome-headless
 ```
 
-1280×720 の仮想画面を作り、拡張が有効であること、取得した画像がデコードできること、ライト・ダーク両方の壁紙 URI、GNOME 背景の画像読み込み、パネルの写真情報を検査します。デスクトップと開いたパネルメニューを撮影し、拡張エラーがないことを確認して終了します。
+1280×720 の仮想画面を作り、拡張が有効であること、取得した画像がデコードできること、ライト・ダーク両方の壁紙 URI、GNOME 背景の画像読み込み、パネルの写真情報を検査します。self では直接参照する URI と元画像・ファイル構成の不変も確認します。デスクトップと開いたパネルメニューを撮影し、拡張エラーがないことを確認して終了します。
 
 エージェントは終了コードと `result.json` を確認したうえで、**`desktop.png` と `menu.png` を画像として開いて確認してください**。PNG の生成成功だけで表示の見た目を判定しません。
 
@@ -49,21 +59,23 @@ pnpm exec vp run gnome-headless
 
 終了時に `artifacts/gnome/<nested|headless>/<run-id>/` の絶対パスを表示します。
 
-| ファイル                  | 内容                                                 |
-| ------------------------- | ---------------------------------------------------- |
-| `result.json`             | 成否、実施した確認、時刻、画像・ログのパス、失敗理由 |
-| `shell.log`               | 専用セッションと GNOME Shell の出力                  |
-| `wallpaper.jpg`           | 実際に取得した写真のコピー。取得成功時に保存         |
-| `desktop.png`／`menu.png` | ヘッドレスで撮影したデスクトップとパネルメニュー     |
+| ファイル                  | 内容                                                         |
+| ------------------------- | ------------------------------------------------------------ |
+| `result.json`             | 成否、取得元、実施した確認、時刻、画像・ログのパス、失敗理由 |
+| `shell.log`               | 専用セッションと GNOME Shell の出力                          |
+| `wallpaper.jpg`           | 実際に表示した画像のコピー。読み込み成功時に保存             |
+| `desktop.png`／`menu.png` | ヘッドレスで撮影したデスクトップとパネルメニュー             |
 
 起動待ちは30秒、ヘッドレスの起動スクリプトは前提チェックを含め120秒で打ち切ります。事前のビルドと終了処理の時間は別です。ネスト版も最初の画像取得までは時間制限を設け、取得後は手動終了を待ちます。
 
-Bing の通信失敗、拡張エラー、画像デコード・撮影失敗、タイムアウトは非ゼロで終了します。成功としてスキップせず、取得できたログと画像を残します。Shell や周辺サービスの警告がログに出る場合があるため、原因は JSON の失敗理由と合わせて確認してください。
+Bing／NASA の通信失敗、拡張エラー、画像デコード・撮影失敗、タイムアウトは非ゼロで終了します。成功としてスキップせず、取得できたログと画像を残します。Shell や周辺サービスの警告がログに出る場合があるため、原因は JSON の失敗理由と合わせて確認してください。
 
 ## 隔離と確認範囲
 
-専用 D-Bus セッションと一時的な XDG 設定・データ・キャッシュ・状態・ランタイムディレクトリを使い、GSettings は専用 keyfile に保存します。通常の拡張配置先、壁紙設定、写真の保存先は使いません。終了時は専用プロセスグループを終了し、一時ディレクトリを削除します。成果物だけが残ります。
+専用 D-Bus セッションと一時的な XDG 設定・データ・キャッシュ・状態・ランタイムディレクトリを使い、GSettings は専用 keyfile に保存します。通常の拡張配置先、壁紙設定、写真の保存先は使いません。終了時は専用プロセスグループを終了し、専用の Document Portal／GVfs の FUSE マウントがあれば解除し、一時ディレクトリを削除します。成果物だけが残ります。
 
 ネスト版は表示と配信にホストの Wayland／PipeWire ソケットを利用します。これは設定・保存先を分離した開発用セッションであり、仮想マシンのような OS 全体の隔離ではありません。ヘッドレス版の Shell 操作と撮影に使う `--unsafe-mode` は専用のテストセッションだけに指定します。
 
 既存の単体テスト・GJS 結合テスト・CI に、このネットワーク依存のテストは組み込みません。Preferences の画面操作は人間向けの確認項目です。OS 再起動・ログイン・ロック解除、ほかの拡張との競合は対象外です。
+
+専用セッションは `GIO_USE_VFS=local` を使います。Open folder には通常のファイルマネージャーを使い、テスト中のネットワーク共有探索用 GVfs ヘルパーの起動を抑えます。

@@ -1,5 +1,6 @@
 import { errorMessage, expiredImages, nextRefresh, restoration, retryDelay } from "./core";
-import type { CacheEntry, Cancellation, Config, Controller, Ports, View } from "./model";
+import type { CacheEntry, Cancellation, Config, Controller, Ports, View, Wallpaper } from "./model";
+import { nextSelfRefresh } from "./self";
 
 export const createController = (ports: Ports, config: () => Config): Controller => {
   const original = ports.background.read();
@@ -28,6 +29,15 @@ export const createController = (ports: Ports, config: () => Config): Controller
     publish({ busy: false, nextAt });
   };
 
+  const apply = (uri: string, image: Wallpaper) => {
+    ports.background.write({ light: uri, dark: uri });
+    owned = uri;
+    publish({ image });
+  };
+  const complete = (nextAt: number) => {
+    failures = 0;
+    schedule(nextAt);
+  };
   const refresh = async (): Promise<void> => {
     if (!active || busy) {
       return;
@@ -41,7 +51,7 @@ export const createController = (ports: Ports, config: () => Config): Controller
     publish({ busy: true, error: null, nextAt: null });
     try {
       const settings = config();
-      const entries = await ports.storage.load(token);
+      const entries = settings.source === "self" ? [] : await ports.storage.load(token);
       if (stale()) {
         return;
       }
@@ -53,6 +63,12 @@ export const createController = (ports: Ports, config: () => Config): Controller
         throw new Error(result.error);
       }
       const image = result.value;
+      if (image.source === "self") {
+        apply(image.uri, image);
+        ports.selfSelection.write(image.selection);
+        complete(nextSelfRefresh(ports.now()));
+        return;
+      }
       const cached = entries.find((item) => item.id === image.id);
       let entry: CacheEntry;
       const exists = cached && (await ports.storage.exists(cached.uri, token));
@@ -66,7 +82,7 @@ export const createController = (ports: Ports, config: () => Config): Controller
         try {
           bytes = await ports.download(image.url, token);
         } catch (error) {
-          if (settings.resolution !== "UHD" || stale()) {
+          if (image.fallbackUrl === null || stale()) {
             throw error;
           }
           bytes = await ports.download(image.fallbackUrl, token);
@@ -84,9 +100,7 @@ export const createController = (ports: Ports, config: () => Config): Controller
       if (stale()) {
         return;
       }
-      ports.background.write({ light: entry.uri, dark: entry.uri });
-      owned = entry.uri;
-      publish({ image });
+      apply(entry.uri, image);
       const current = ports.background.read();
       const expired = expiredImages(updated, ports.now(), [
         original.light,
@@ -109,8 +123,7 @@ export const createController = (ports: Ports, config: () => Config): Controller
       if (stale()) {
         return;
       }
-      failures = 0;
-      schedule(nextRefresh(image.publishedAt, ports.now()));
+      complete(nextRefresh(image.publishedAt, ports.now()));
     } catch (error) {
       if (stale()) {
         return;

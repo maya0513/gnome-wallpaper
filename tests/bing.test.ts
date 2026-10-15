@@ -3,7 +3,7 @@ import { it, expect, vi } from "vite-plus/test";
 import { createBingSource } from "../src/bing";
 
 const token = { cancelled: () => false, cancel: () => {} };
-const config = { market: "ja-JP", resolution: "UHD" as const };
+const config = { source: "bing" as const, market: "ja-JP", resolution: "UHD" as const };
 
 it("encodes the market and parses Bing information with a pure function", async () => {
   const fetch = vi.fn(async () =>

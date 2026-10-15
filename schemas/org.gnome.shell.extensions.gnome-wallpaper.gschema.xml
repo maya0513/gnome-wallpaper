@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
   <schema id="org.gnome.shell.extensions.gnome-wallpaper" path="/org/gnome/shell/extensions/gnome-wallpaper/">
+    <key name="source" type="s">
+      <choices><choice value="bing"/><choice value="nasa-iotd"/><choice value="self"/></choices>
+      <default>'bing'</default>
+      <summary>Image source</summary>
+      <description>Bing, NASA Image of the Day or images in the self folder.</description>
+    </key>
+    <key name="self-selection" type="(ss)">
+      <default>('', '')</default>
+      <summary>Last self image and local date</summary>
+      <description>Internal state used to keep the same image throughout a local calendar day.</description>
+    </key>
     <key name="market" type="s">
       <default>'ja-JP'</default>
       <summary>Bing market</summary>

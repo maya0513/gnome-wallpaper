@@ -5,11 +5,19 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { once } from "node:events";
+import { prepareSelfFixture, verifySelfFixture } from "./self-fixture.ts";
+import { nasaFeed, nasaMetadata } from "../tests/fixtures/nasa.ts";
 
 const requests: (string | undefined)[] = [];
 const server = createServer((request, response) => {
   requests.push(request.url);
-  if (request.url === "/archive") {
+  if (request.url === "/nasa-feed") {
+    response.end(nasaFeed);
+  } else if (request.url === "/nasa-media") {
+    response.end(JSON.stringify(nasaMetadata));
+  } else if (request.url === "/nasa-image") {
+    response.end(Buffer.from([255, 216, 255, 217]));
+  } else if (request.url === "/archive") {
     response.end(
       JSON.stringify({
         images: [
@@ -42,6 +50,7 @@ server.listen(0, "127.0.0.1");
 await once(server, "listening");
 const temp = await mkdtemp(join(tmpdir(), "wallpaper-gjs-"));
 try {
+  await prepareSelfFixture(temp);
   const address = server.address();
   assert.ok(address !== null && typeof address !== "string");
   const child = spawn(
@@ -73,13 +82,18 @@ try {
   const result: unknown = JSON.parse(stdout.trim());
   assert.ok(result !== null && typeof result === "object" && "ok" in result);
   assert.equal(result.ok, true);
-  assert.equal(requests.filter((url) => url === "/archive").length, 2);
+  assert.equal(requests.filter((url) => url === "/archive").length, 3);
+  for (const url of ["/nasa-feed", "/nasa-media"]) {
+    assert.equal(requests.filter((request) => request === url).length, 2);
+  }
+  assert.equal(requests.filter((url) => url === "/nasa-image").length, 1);
   assert.equal(requests.filter((url) => url === "/uhd").length, 1);
   assert.equal(requests.filter((url) => url === "/image").length, 1);
+  await verifySelfFixture(temp);
   const stored = await readdir(join(temp, "images"));
-  assert.equal(stored.length, 3, "Unexpected temporary files");
+  assert.equal(stored.length, 4, "Unexpected temporary files");
   console.log(
-    "Real GJS: verified Soup, asynchronous atomic storage, memory GSettings, cancellation, and conditional restoration",
+    "Real GJS: verified Soup, asynchronous atomic storage, memory GSettings, cancellation, self JPEG/PNG/WebP rotation without HTTP or image changes, and conditional restoration",
   );
 } finally {
   server.closeAllConnections();

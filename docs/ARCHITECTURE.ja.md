@@ -8,21 +8,22 @@
 
 対象は GNOME Shell 50 です。拡張は GJS の ESM として動き、Node は開発ツールだけで使います。TypeScript と両ビルドのターゲットは ES2025 で、実行時の polyfill はありません。GTK と Adwaita は別プロセスの設定画面で使います。
 
-| 層                                                 | 担当                                                               | テスト                                                                                |
-| -------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| [model.ts](../src/model.ts)                        | readonly な値、`Result`、`ImageSource`、注入する副作用の境界       | 型検査と利用側のテスト                                                                |
-| [core.ts](../src/core.ts)                          | 純粋関数による解析、画像識別、更新時刻、再試行、保存整理、復元判断 | [core.test.ts](../tests/core.test.ts)                                                 |
-| [bing.ts](../src/bing.ts)                          | Bing の画像情報の要求と `Result` への変換                          | [bing.test.ts](../tests/bing.test.ts)                                                 |
-| [controller.ts](../src/controller.ts)              | 副作用の順序、要求の世代、キャッシュ、壁紙設定の所有               | [controller.test.ts](../tests/controller.test.ts)                                     |
-| [gjs.ts](../src/gjs.ts)                            | Soup 通信、Gio 保存、GSettings トランザクション、中断、タイマー    | [gjs.test.ts](../tests/gjs.test.ts)、[実 GJS 結合テスト](../tests/integration/gjs.ts) |
-| [extension.ts](../src/extension.ts)                | GNOME の入口、設定シグナル、依存性の接続、終了処理                 | [extension.test.ts](../tests/extension.test.ts)                                       |
-| [ui.ts](../src/ui.ts)、[prefs.ts](../src/prefs.ts) | パネルメニューと市場・解像度の設定画面                             | [ui.test.ts](../tests/ui.test.ts)、[prefs.test.ts](../tests/prefs.test.ts)            |
+| 層                                                         | 担当                                                               | テスト                                                                                |
+| ---------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| [model.ts](../src/model.ts)                                | readonly な値、`Result`、`ImageSource`、注入する副作用の境界       | 型検査と利用側のテスト                                                                |
+| [core.ts](../src/core.ts)                                  | 純粋関数による解析、画像識別、更新時刻、再試行、保存整理、復元判断 | [core.test.ts](../tests/core.test.ts)                                                 |
+| [bing.ts](../src/bing.ts)                                  | Bing の画像情報の要求と `Result` への変換                          | [bing.test.ts](../tests/bing.test.ts)                                                 |
+| [nasa.ts](../src/nasa.ts)、[sources.ts](../src/sources.ts) | NASA の画像情報・横長画像の選別・取得元選択                        | [nasa.test.ts](../tests/nasa.test.ts)                                                 |
+| [controller.ts](../src/controller.ts)                      | 副作用の順序、要求の世代、キャッシュ、壁紙設定の所有               | [controller.test.ts](../tests/controller.test.ts)                                     |
+| [gjs.ts](../src/gjs.ts)                                    | Soup 通信、Gio 保存、GSettings トランザクション、中断、タイマー    | [gjs.test.ts](../tests/gjs.test.ts)、[実 GJS 結合テスト](../tests/integration/gjs.ts) |
+| [extension.ts](../src/extension.ts)                        | GNOME の入口、設定シグナル、依存性の接続、終了処理                 | [extension.test.ts](../tests/extension.test.ts)                                       |
+| [ui.ts](../src/ui.ts)、[prefs.ts](../src/prefs.ts)         | パネルメニューと市場・解像度の設定画面                             | [ui.test.ts](../tests/ui.test.ts)、[prefs.test.ts](../tests/prefs.test.ts)            |
 
-コアは GNOME や Node の API を import しません。`ImageSource` により、コントローラーを変更せずに Bing を別の取得元に交換できます。通信、保存、背景設定、時刻、タイマー、表示、ログ、中断は依存性注入します。コントローラーの状態はファクトリー内に閉じ、ドメインの値は readonly にします。クラスは GNOME が要求する入口に限定します。
+コアは GNOME や Node の API を import しません。`ImageSource` により、コントローラーを変更せずに Bing を別の取得元に交換できます。通信、保存、背景設定、時刻、タイマー、表示、ログ、中断は依存性注入します。コントローラーの状態はファクトリー内に閉じ、ドメインの値は readonly にします。自作クラスは GNOME が要求する入口に限定します。XML と文字参照の解析ライブラリは読みやすいコードとして同梱します。
 
 ## 画像取得元の仕様
 
-既定値は `market = ja-JP`、`resolution = UHD` です。もう一つの解像度は `1920x1080` です。
+既定値は `source = bing`、`market = ja-JP`、`resolution = UHD` です。もう一つの解像度は `1920x1080` です。
 
 Bing 実装は `https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=<encoded-market>` に要求し、先頭の画像を解析します。テストでは、不正な UTF-8、JSON、必須項目の欠落、存在しない日時、想定外の URL 接頭辞を拒否します。`fullstartdate` は12桁の分精度、または14桁の秒精度を UTC として解釈し、有効な暦日時として往復変換できることを確認します。画像パスは `/th?id=OHR.`、情報リンクは `https://www.bing.com/` から始まる必要があります。これは接頭辞の検査であり、URL の安全性全般を証明するものではありません。
 
@@ -30,12 +31,26 @@ Bing 実装は `https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt
 
 UHD のダウンロードが失敗すると、代替 URL を一度試します。通常解像度で失敗した場合は、代替 URL を試さず再試行を予約します。中断時には代替画像を要求しません。代替画像を保存しても識別子は要求時の UHD のままであり、ファイルが存在する間はそのキャッシュを再利用します。
 
+NASA 実装（[nasa.ts](../src/nasa.ts)）は公式 RSS の最新20件を公開日時順に並べ、画像ページの slug で WordPress Media API の情報を一括取得します。RSS の画像URL・MIME と照合し、JPEG／PNG、幅1920以上・高さ1080以上、幅÷高さ1.45〜2.4の最新画像を選びます。元画像を使い、Bing の地域・解像度設定は適用しません。タイトルと公開日は RSS、クレジットは画像メタデータから取得し、文字参照を復元します。クレジット欠落時は元ページの確認を案内します。`infoUrl` は元ページを保持しますが、パネルの出典は文字表示です。
+
+NASA の識別子は `nasa-iotd-<media-id>` とし、Bing と衝突しません。`fallbackUrl` は null で、別画像・別取得元への代替取得は行いません。不正な候補は除外し、通信・形式の失敗や適合画像なしはエラーにします。既存の壁紙維持・再試行・公開時刻に基づく確認予約を共用するため、古い画像を選んだ場合は1時間後に再確認します。[nasa.test.ts](../tests/nasa.test.ts) が解析・選別・取得元選択を検証します。
+
+## My images の仕様
+
+`self` は `$XDG_DATA_HOME/gnome-wallpaper/self/`（通常 `~/.local/share/gnome-wallpaper/self/`）直下の通常ファイルを列挙し、JPEG・PNG・WebP の拡張子で絞り、数字を考慮した名前順に並べます。同じ照合順なら文字列比較で順序を固定します。非同期 GdkPixbuf デコードで破損・欠落画像を飛ばし、サブフォルダーやサイズ・縦横比による選別は行いません。
+
+[self.ts](../src/self.ts) が日付と選択を決め、[self-gjs.ts](../src/self-gjs.ts) が Gio による列挙・読み取り・フォルダー表示と GSettings を担当します。[self.test.ts](../tests/self.test.ts) と [self-gjs.test.ts](../tests/self-gjs.test.ts) がそれぞれを検証します。
+
+初回は先頭、同日なら保存したファイル、日付が進んでいれば次の1枚を選び、末尾で循環します。未起動日数は数えません。現在のファイルがなければ先頭から、破損していればその位置から読める画像を探します。システム時計が戻った場合は進めず、保存済みの日付を維持します。Refresh now は再列挙だけで同日の画像を進めません。
+
+`Wallpaper` はオンライン画像 `RemoteWallpaper` と保存済み URI の `SelfWallpaper` の判別共用体です。self は HTTP・オンラインキャッシュ・インデックス・保存整理を経由せず、両テーマに元ファイル URI を直接設定します。成功後だけ `self-selection: (ss)` にファイル名と現地日付を保存し、この内部キーの変更は再取得を起こしません。次回は翌日の現地午前0時（DST を考慮）に予約し、スリープ復帰時にも更新処理を行います。失敗時は既存の再試行を使い、壁紙設定を保ちます。画像自体には書き込みません。
+
 ## 更新・再試行・中断の仕様
 
 ライフサイクルのテストが定める順序は次のとおりです。
 
 1. コントローラーの生成時に、ライト・ダーク両方の元の背景設定を記録します。
-2. 有効化、手動更新、設定変更でキャッシュを読み、画像情報を要求します。
+2. オンライン取得元では、有効化、手動更新、設定変更でキャッシュを読み、画像情報を要求します。
 3. 識別子が一致しファイルが存在すれば再利用し、なければ画像を取得して原子的に保存します。
 4. 更新した索引を保存してから、両方の背景設定に画像を適用し、画像情報を表示します。
 5. 期限を過ぎた保護対象外の画像を削除し、整理後の索引を保存して次回確認を予約します。
@@ -51,7 +66,7 @@ UHD のダウンロードが失敗すると、代替 URL を一度試します�
 | 壁紙適用前の失敗 | 今の壁紙を維持し、エラーを表示・記録して再試行を予約   |
 | 適用後の整理失敗 | 新しい壁紙を維持し、エラーを表示・記録して再試行を予約 |
 
-予約は公開時刻を基準にし、特定の地域の午前0時を約束するものではありません。コアのテストはうるう日と古い画像のケースを検証します。タイマーの解除と一度だけの実行はアダプターの境界で確認します。
+オンライン取得元の予約は公開時刻を基準にし、特定の地域の午前0時を約束するものではありません。コアのテストはうるう日と古い画像のケースを検証します。タイマーの解除と一度だけの実行はアダプターの境界で確認します。
 
 無効化は複数回呼んでも安全です。入口で設定シグナルを解除し、コントローラーの処理を止め、HTTP セッションを閉じ、メニューを破棄します。復元は、二つの背景設定を最後に拡張が正常適用した URI と個別に比較します。一致する設定だけ元の値へ戻し、手動変更した設定は維持します。画像を一度も適用していなければ、無効化時に背景設定を書きません。復元失敗はログに記録します。
 
@@ -63,19 +78,19 @@ Gio の非同期 API を使い、`REPLACE_DESTINATION` を指定した `replace_
 
 整理では、公開時刻が7日前より厳密に古い、索引に記録された画像を削除します。ちょうど7日前の画像は残します。現在の背景 URI と元の復元先 URI は、ライト・ダーク双方を古くても保護します。整理は壁紙適用の成功後に行い、索引にあるファイルだけが対象です。厳密な7ファイル上限ではありません。保存後の索引更新が失敗したり要求が中断されたりすると、索引にないファイルが残る場合があります。
 
-背景設定は `org.gnome.desktop.background` の `picture-uri` と `picture-uri-dark` を遅延更新します。両方の書き込みが受理されてから `apply` し、拒否や例外では保留中の変更を `revert` します。拡張の設定スキーマは `org.gnome.shell.extensions.gnome-wallpaper` で、市場と解像度だけを持ちます。
+背景設定は `org.gnome.desktop.background` の `picture-uri` と `picture-uri-dark` を遅延更新します。両方の書き込みが受理されてから `apply` し、拒否や例外では保留中の変更を `revert` します。拡張の設定スキーマは `org.gnome.shell.extensions.gnome-wallpaper` で、取得元、市場、解像度、内部状態 `self-selection` を持ちます。
 
 ## UI の仕様と検証の範囲
 
-境界テストで、画像名・出典、待機・更新中・エラー・次回確認の表示、更新・設定の操作、メニュー破棄を確認します。更新中は手動更新を無効にします。エラーは次回確認時刻より優先して表示します。出典は文字として表示し、情報ページへのリンクにはしません。操作と状態の日時表示は英語で、画像の文字情報は取得元から来ます。市場は入力欄と例を用意し、対応地域の一覧検証はしません。設定変更は GSettings を通じて監視し、設定画面を閉じると解像度のシグナルを解除します。
+境界テストで、取得元・画像名・出典、待機・更新中・エラー・次回確認の表示、更新・設定の操作、メニュー破棄を確認します。更新中は手動更新を無効にします。エラーは次回確認時刻より優先して表示します。出典は文字として表示し、情報ページへのリンクにはしません。操作と状態の日時表示は英語で、画像の文字情報は取得元から来ます。市場は入力欄と例を用意し、対応地域の一覧検証はしません。設定変更は GSettings を通じて監視し、取得元に応じて Bing 専用項目の操作可否を切り替え、設定画面を閉じると取得元・解像度・設定監視のシグナルを解除します。
 
 メタデータは、ロック中の更新を可能にするため `user` と `unlock-dialog` のセッションモードを指定します。テストはこの宣言を検証し、実際のロック画面での動作は検証していません。
 
 UI、入口、アダプター、未 import のファイルも含め、実行可能な `src/**/*.ts` の各ファイルで、**行・文・関数・分岐をそれぞれ100%** 必須にしています。型宣言に実行コードはありません。単体テストでは GNOME API の alias で境界をモックし、実際のデスクトップの動作までは確認しません。
 
-[test-gjs.ts](../scripts/test-gjs.ts) が起動する [実 GJS テスト](../tests/integration/gjs.ts) は、実際のコア、取得元、コントローラー、アダプターを GJS、Soup、Gio 上で実行します。ローカル HTTP サーバー、一時ディレクトリ、メモリ版 GSettings を使い、UHD の代替取得、キャッシュ再利用、索引に基づく整理と保護、条件付き復元、不正な画像情報、HTTP エラー、実通信・保存の中断、スキーマの既定値と書き込みを確認します。一部の ES2025 API も実行します。HTTP の画像データは合成したバイト列であり、実際の写真のデコード・表示や Bing の実応答は確認しません。
+[test-gjs.ts](../scripts/test-gjs.ts) が起動する [実 GJS テスト](../tests/integration/gjs.ts) は、実際のコア、取得元、コントローラー、アダプターを GJS、Soup、Gio 上で実行します。ローカル HTTP サーバー、一時ディレクトリ、メモリ版 GSettings を使い、UHD の代替取得、Bing ⇔ NASA 切り替えとキャッシュ分離、キャッシュ再利用、索引に基づく整理と保護、条件付き復元、不正な画像情報、HTTP エラー、実通信・保存の中断、スキーマの既定値と書き込みを確認します。一部の ES2025 API も実行します。HTTP の画像データは合成したバイト列であり、実際の写真のデコード・表示や Bing／NASA の実応答は確認しません。
 
-ローカル検証は GJS 1.88.0 で成功しています。[ローカル GNOME 動作確認](GNOME.ja.md)は、製品 ZIP を一時的に配置した GNOME Shell 50 セッションを起動します。ヘッドレス版で実際の Bing 画像の取得・デコード、背景の読み込み、両テーマの壁紙 URI、パネル情報、画面の撮影を確認し、ネスト版は人間が操作できる画面を開きます。OS ログイン・ロック中の動作、通常のインストールと配布は対象外です。GitHub の CI は Ubuntu 26.04 上で実行し、最新の結果とレポートは [Actions](https://github.com/maya0513/gnome-wallpaper/actions) で確認できます。App の修復動作とリポジトリ保護は別途確認が必要です。
+ローカル検証は GJS 1.88.0 で成功しています。[ローカル GNOME 動作確認](GNOME.ja.md)は、製品 ZIP を一時的に配置した GNOME Shell 50 セッションを起動します。ヘッドレス版で実際の Bing／NASA 画像の取得・デコード、背景の読み込み、両テーマの壁紙 URI、パネル情報、画面の撮影を確認し、ネスト版は人間が操作できる画面を開きます。OS ログイン・ロック中の動作、通常のインストールと配布は対象外です。GitHub の CI は Ubuntu 26.04 上で実行し、最新の結果とレポートは [Actions](https://github.com/maya0513/gnome-wallpaper/actions) で確認できます。App の修復動作とリポジトリ保護は別途確認が必要です。
 
 ## ビルド・タスク・サイズ
 
@@ -83,7 +98,7 @@ UI、入口、アダプター、未 import のファイルも含め、実行可�
 
 `tsconfig.json` は Node の型を使い、アプリケーションと開発用ファイルを検査します。`tsconfig.app.json` は、Node の暗黙のグローバル型を含めないアプリケーション専用の追加検査です。別の出力ビルドではなく型環境の境界であり、`types: []` だけで Node モジュールの明示的な import を禁止するものではありません。パッケージの検証でも、出力 JavaScript への開発依存の import を確認します。
 
-ビルドは `gi://` と `resource:///` の import を保持し、読みやすい ESM の `extension.js` と `prefs.js` を出力します。ZIP にはそれら、メタデータ、GSettings スキーマのソースとコンパイル結果、MIT の LICENSE を含めます。開発依存、テスト、スクリプト、ドキュメント、壁紙画像は含めません。[validate-package.ts](../scripts/validate-package.ts) で構成、GNOME 50 とセッションのメタデータ、ESM の import と default export、スキーマの妥当性を確認します。
+ビルドは `gi://` と `resource:///` の import を保持し、読みやすい ESM の `extension.js` と `prefs.js` を出力します。ZIP にはそれら、メタデータ、GSettings スキーマのソースとコンパイル結果、MIT の LICENSE と同梱依存の `THIRD_PARTY_LICENSES.txt` を含めます。開発依存、テスト、スクリプト、ドキュメント、壁紙画像は含めません。[validate-package.ts](../scripts/validate-package.ts) で構成、GNOME 50 とセッションのメタデータ、ESM の import と default export、スキーマの妥当性を確認します。
 
 `pnpm exec vp run size` で再ビルドし、計測結果を表示できます。全検証の `pnpm exec vp run ci` は、前提となる検証がすべて成功してから同じ計測コマンドを実行します。前提の検証や計測が失敗すれば、CI も失敗します。最新の正確な結果は [measure-size.ts](../scripts/measure-size.ts) が生成する [artifacts/build-size.json](../artifacts/build-size.json) にあります。
 
@@ -106,4 +121,8 @@ minify は整形用の空白などを削り、名前を短くすることで Jav
 
 ## ライセンス
 
-独立して作成したコードとドキュメントは MIT です。配布するコピーには著作権表示と許諾表示を維持します。GNOME と依存ライブラリにはそれぞれのライセンスが適用され、組み合わせた配布では適用される GPL の条件を守ります。[GNOME のライセンス要件](https://gjs.guide/extensions/review-guidelines/review-guidelines.html#licensing)を参照してください。ソフトウェアのライセンスは Bing の写真の権利を許諾しません。
+独立して作成したコードとドキュメントは MIT です。配布するコピーには著作権表示と許諾表示を維持します。GNOME と依存ライブラリにはそれぞれのライセンスが適用され、組み合わせた配布では適用される GPL の条件を守ります。[GNOME のライセンス要件](https://gjs.guide/extensions/review-guidelines/review-guidelines.html#licensing)を参照してください。ソフトウェアのライセンスは 配信写真の権利を許諾しません。
+
+製品依存は GJS 用に同梱し、ZIP 検証で外部パッケージの import が残っていないことを確認します。`THIRD_PARTY_LICENSES.txt` はバンドルの chunk に実際に含まれる依存から生成します。npm 配布に不足する原文は `licenses/` に正確なパッケージバージョンと対応させて保存します。
+
+self の実 GJS 結合テストは実際の JPEG・PNG・WebP、破損画像、サブフォルダーを使い、直接参照・状態保存・同日再起動・取得元の再選択・日替わり循環を確認します。HTTP とオンライン保存のポートは呼ぶと失敗するものへ置き換え、終了後に元ファイルのバイト列とフォルダー構成を比較します。GNOME の self テストも専用フォルダーのフィクスチャを使い、通常の画像を変更しません。

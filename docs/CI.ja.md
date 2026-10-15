@@ -17,7 +17,7 @@ mise exec node pnpm -- pnpm exec vp run ci
 
 Node と pnpm は `mise.toml` で選択し、チェックサムと対象プラットフォームを `mise.lock` に記録します。`package.json` の `engines.node` と `packageManager` にそれぞれ完全バージョンを記載し、mise の宣言との一致を CI で検証します。Renovate は npm 生成時の Node を別に選択するため、宣言の一致だけではその実行バージョンまで検証できません。`pmOnFail: error` により、pnpm が別バージョンを自動取得したり不一致のまま実行したりすることを防ぎます。記録する環境は Linux x64・ARM64、受理判定ジョブが実行される環境は現在 Linux x64 です。
 
-タスクの主な入口は Vite tasks です。package scripts と mise tasks は置きません。`justfile` はローカル GNOME 動作確認用の Vite タスクを呼び出す入口です。ネイティブ検証には GJS、Soup 3 の introspection、デスクトップの GSettings schema、`glib-compile-schemas`、`zip`、`unzip` が必要です。アプリは GJS 向け ESM とし、minify せずパッケージ化します。
+タスクの主な入口は Vite tasks です。package scripts と mise tasks は置きません。`justfile` はローカル GNOME 動作確認用の Vite タスクを呼び出す入口です。ネイティブ検証には GJS、Soup 3／GdkPixbuf の introspection、WebP ローダー（Ubuntu: `webp-pixbuf-loader`）、デスクトップの GSettings schema、`glib-compile-schemas`、`zip`、`unzip` が必要です。アプリは GJS 向け ESM とし、minify せずパッケージ化します。
 
 主なタスク：
 
@@ -113,4 +113,4 @@ mise exec node pnpm -- pnpm exec vp run ci
 
 Actions は coverage／JUnit、ネイティブ／サイズレポート、検証済み拡張 ZIP を 14 日保持します。run summary にもサイズ表を表示します。ローカルでは `artifacts/build-size.json`、`artifacts/gjs-integration.json`、`coverage/` を確認し、新しく測るときは `vp run size` を実行します。サイズは出力 JavaScript、展開後ファイル、ZIP のバイト数で、メモリ使用量やダウンロード画像は含みません。ZIP 内のコードは minify せず可読性を保ちます。
 
-単体テストは GNOME 境界モックを使います。結合テストは実 GJS、ローカル HTTP サーバー、一時ディレクトリ、メモリ GSettings を使います。外部 Bing に依存せず、実際の壁紙設定を変更しません。CI は実 GNOME のパネル・設定画面・画像表示・ロック中の動作を検証しません。実際の Bing と GNOME の表示は、CI とは別の[ローカル GNOME 動作確認](GNOME.ja.md)で確認します。通常のインストール、配布、デプロイは後続作業です。
+単体テストは GNOME 境界モックを使います。結合テストは実 GJS、ローカル HTTP サーバー、一時ディレクトリ、メモリ GSettings を使います。JPEG／PNG／WebP の self フィクスチャで、直接参照・状態保存・日次循環・元ファイル不変・通信とキャッシュを使わないことも確認します。外部 Bing／NASA に依存せず、実際の壁紙設定を変更しません。CI は実 GNOME のパネル・設定画面・画像表示・ロック中の動作を検証しません。実際の Bing と GNOME の表示は、CI とは別の[ローカル GNOME 動作確認](GNOME.ja.md)で確認します。通常のインストール、配布、デプロイは後続作業です。

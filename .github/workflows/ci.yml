@@ -174,7 +174,7 @@ jobs:
       - name: Install native test and ZIP tools
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y gjs gir1.2-soup-3.0 gsettings-desktop-schemas libglib2.0-bin zip unzip
+          sudo apt-get install --no-install-recommends -y gjs gir1.2-soup-3.0 gir1.2-gdkpixbuf-2.0 webp-pixbuf-loader gsettings-desktop-schemas libglib2.0-bin zip unzip
           gjs --version >> "$GITHUB_STEP_SUMMARY"
       - name: Build, test in real GJS, validate the ZIP, and measure size
         run: mise exec node pnpm -- pnpm exec vp run native

@@ -1,4 +1,4 @@
-import type { CacheEntry, Config, Result, Wallpaper, Background } from "./model";
+import type { CacheEntry, Config, Result, RemoteWallpaper, Background } from "./model";
 
 const DAY = 86_400_000;
 const PUBLISH_MARGIN = 300_000;
@@ -7,14 +7,15 @@ const RETRY_INITIAL = 900_000;
 const RETRY_MAX = 21_600_000;
 const RETENTION_DAYS = 7;
 const MINUTE_STAMP_LENGTH = 12;
-const isRecord = (value: unknown): value is Record<string, unknown> =>
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-const text = (value: unknown): value is string => typeof value === "string" && value.length > 0;
+export const text = (value: unknown): value is string =>
+  typeof value === "string" && value.length > 0;
 
 export const imageKey = (config: Config, base: string): string =>
   `${config.market}-${config.resolution}-${encodeURIComponent(base)}`;
 
-export const parseBing = (input: unknown, config: Config): Result<Wallpaper> => {
+export const parseBing = (input: unknown, config: Config): Result<RemoteWallpaper> => {
   if (!isRecord(input) || !Array.isArray(input.images)) {
     return { ok: false, error: "Invalid Bing image information" };
   }
@@ -53,13 +54,14 @@ export const parseBing = (input: unknown, config: Config): Result<Wallpaper> => 
   return {
     ok: true,
     value: {
+      source: "bing",
       id: imageKey(config, image.urlbase),
       publishedAt,
       title: text(image.title) ? image.title : image.copyright,
       copyright: image.copyright,
       infoUrl: image.copyrightlink,
       url: `https://www.bing.com${image.urlbase}_${config.resolution}.jpg&qlt=100`,
-      fallbackUrl: `https://www.bing.com${image.url}`,
+      fallbackUrl: config.resolution === "UHD" ? `https://www.bing.com${image.url}` : null,
     },
   };
 };

@@ -1,17 +1,21 @@
 import assert from "node:assert/strict";
-import { execFile, spawn } from "node:child_process";
-import type * as ChildProcesses from "node:child_process";
+import * as ChildProcesses from "node:child_process";
 import { constants, createWriteStream } from "node:fs";
-import { access, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { access, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve as absolute } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { isolatedEnvironment, stopGroup } from "./gnome-environment.ts";
+import { prepareSelfFixture, verifySelfFixture } from "./self-fixture.ts";
+import {
+  cleanupEnvironment,
+  createEnvironmentRoot,
+  isolatedEnvironment,
+  stopGroup,
+} from "./gnome-environment.ts";
 
-const execute = promisify(execFile);
+const execute = promisify(ChildProcesses.execFile);
 const uuid = "gnome-wallpaper@maya0513.github.io";
 const script = import.meta.filename;
 const startupTimeout = 30_000;
@@ -26,6 +30,7 @@ interface Check {
 interface Report {
   ok: boolean;
   mode: Mode;
+  source: "bing" | "nasa-iotd" | "self";
   startedAt: string;
   finishedAt?: string;
   checks: Check[];
@@ -47,6 +52,7 @@ const validateReport = (input: unknown): input is Report => {
   return (
     typeof item.ok === "boolean" &&
     (item.mode === "nested" || item.mode === "headless") &&
+    (item.source === "bing" || item.source === "nasa-iotd" || item.source === "self") &&
     typeof item.startedAt === "string" &&
     typeof item.log === "string" &&
     Array.isArray(item.checks) &&
@@ -60,6 +66,12 @@ const validateReport = (input: unknown): input is Report => {
       (text: unknown) => text === undefined || typeof text === "string",
     )
   );
+};
+const cleanupFailure = (cause: unknown): string => {
+  const error = `GNOME cleanup failed: ${message(cause)}`;
+  console.error(error);
+  process.exitCode = 1;
+  return error;
 };
 const readReport = async (output: string): Promise<Report> => {
   const value: unknown = JSON.parse(await readFile(join(output, "result.json"), "utf8"));
@@ -82,6 +94,7 @@ const preflight = async (mode: Mode, signal: AbortSignal): Promise<string> => {
   await runCommand("dbus-run-session", ["--version"], signal);
   await runCommand("gsettings", ["--version"], signal);
   await runCommand("unzip", ["-v"], signal);
+  await runCommand("fusermount3", ["--version"], signal);
   await runCommand(
     "gjs",
     [
@@ -273,7 +286,7 @@ const observe = async (mode: Mode, output: string, report: Report, signal: Abort
         : null;
     },
     smokeTimeout - startupTimeout,
-    "a real Bing wallpaper",
+    `a real ${report.source} wallpaper`,
     signal,
   );
   assert.equal(typeof image.light, "string");
@@ -284,6 +297,11 @@ const observe = async (mode: Mode, output: string, report: Report, signal: Abort
     file.startsWith(`${process.env.XDG_DATA_HOME}/gnome-wallpaper/`),
     "Image outside the isolated storage",
   );
+  if (report.source === "self") {
+    assert.equal(file, join(String(process.env.XDG_DATA_HOME), "gnome-wallpaper/self/image1.jpg"));
+    await verifySelfFixture(String(process.env.XDG_DATA_HOME));
+    report.checks.push({ name: "self-original-files-unchanged", ok: true });
+  }
   const downloaded = join(output, "wallpaper.jpg");
   await copyFile(file, downloaded);
   report.checks.push({ name: "image-decoded", ok: true, detail: dimensions });
@@ -292,7 +310,14 @@ const observe = async (mode: Mode, output: string, report: Report, signal: Abort
   }
   assert.equal(image.dark, uri, "Light and dark backgrounds must use the downloaded image");
   assert.ok(
-    Array.isArray(image.labels) && image.labels[0] !== "No image yet" && image.labels[1] !== "Bing",
+    Array.isArray(image.labels) &&
+      image.labels[0] !== "No image yet" &&
+      typeof image.labels[1] === "string" &&
+      image.labels[1].startsWith(
+        { bing: "Bing · ", "nasa-iotd": "NASA Image of the Day · ", self: "My images · " }[
+          report.source
+        ],
+      ),
     "Panel photo information missing",
   );
   report.checks.push(
@@ -335,7 +360,7 @@ const session = async (mode: Mode, output: string) => {
   const timeout = setTimeout(() => {
     controller.abort(new Error("GNOME smoke test exceeded 120 seconds"));
   }, smokeTimeout);
-  const shell = spawn(
+  const shell = ChildProcesses.spawn(
     "gnome-shell",
     [
       "--wayland",
@@ -384,7 +409,7 @@ const session = async (mode: Mode, output: string) => {
     if (mode === "nested") {
       clearTimeout(timeout);
       console.log(
-        "Bing image ready. Use the wallpaper panel icon to refresh or open Preferences. Close the Devkit window or press Ctrl+C to exit.",
+        `${report.source} image ready. Use the wallpaper panel icon to refresh or open Preferences. Close the Devkit window or press Ctrl+C to exit.`,
       );
       await Promise.race([
         closed,
@@ -426,6 +451,7 @@ export const main = async (mode: Mode): Promise<void> => {
   const report: Report = {
     ok: false,
     mode,
+    source: "bing",
     startedAt: new Date().toISOString(),
     checks: [],
     screenshots: [],
@@ -447,15 +473,24 @@ export const main = async (mode: Mode): Promise<void> => {
       : null;
   const log = createWriteStream(report.log);
   try {
+    const source = process.env.GNOME_WALLPAPER_TEST_SOURCE ?? "bing";
+    assert.ok(
+      source === "bing" || source === "nasa-iotd" || source === "self",
+      "GNOME_WALLPAPER_TEST_SOURCE must be bing, nasa-iotd or self",
+    );
+    report.source = source;
     report.checks.push({
       name: "prerequisites",
       ok: true,
       detail: await preflight(mode, controller.signal),
     });
-    root = await mkdtemp(join(tmpdir(), "gnome-wallpaper-"));
+    root = await createEnvironmentRoot();
     const env = isolatedEnvironment(root, process.env, mode);
     for (const name of ["config", "data", "cache", "state", "runtime"]) {
       await mkdir(join(root, name), { mode: 0o700 });
+    }
+    if (source === "self") {
+      await prepareSelfFixture(join(root, "data"));
     }
     const extension = join(root, "data/gnome-shell/extensions", uuid);
     await mkdir(extension, { recursive: true });
@@ -465,6 +500,14 @@ export const main = async (mode: Mode): Promise<void> => {
       controller.signal,
     );
     env.GSETTINGS_SCHEMA_DIR = join(extension, "schemas");
+    await execute(
+      "gsettings",
+      ["set", "org.gnome.shell.extensions.gnome-wallpaper", "source", report.source],
+      {
+        env,
+        signal: controller.signal,
+      },
+    );
     for (const [key, value] of [
       ["enabled-extensions", `['${uuid}']`],
       ["disable-user-extensions", "false"],
@@ -478,11 +521,15 @@ export const main = async (mode: Mode): Promise<void> => {
     }
     await writeFile(join(output, "result.json"), JSON.stringify(report, null, 2));
     controller.signal.throwIfAborted();
-    child = spawn("dbus-run-session", ["--", process.execPath, script, "--session", mode, output], {
-      env,
-      detached: true,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    child = ChildProcesses.spawn(
+      "dbus-run-session",
+      ["--", process.execPath, script, "--session", mode, output],
+      {
+        env,
+        detached: true,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
     child.stdout?.on("data", (bytes: Buffer) => {
       log.write(bytes);
       process.stdout.write(bytes);
@@ -521,10 +568,16 @@ export const main = async (mode: Mode): Promise<void> => {
       if (child !== null) {
         await stopGroup(child);
       }
+    } catch (error) {
+      report.error = cleanupFailure(error);
     } finally {
       log.end();
       if (root !== null) {
-        await rm(root, { recursive: true, force: true });
+        try {
+          await cleanupEnvironment(root);
+        } catch (error) {
+          report.error = cleanupFailure(error);
+        }
       }
       process.off("SIGINT", interrupted);
       process.off("SIGTERM", interrupted);

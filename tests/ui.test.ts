@@ -20,6 +20,7 @@ it("displays image information and status, connects actions, and destroys the me
   expect(defined(items[0]).label.text).toBe("No image yet");
   expect(defined(items[2]).label.text).toBe("Waiting for an update");
   const image = {
+    source: "bing" as const,
     id: "test",
     title: "Autumn mountains",
     copyright: "© Photographer",
@@ -30,7 +31,9 @@ it("displays image information and status, connects actions, and destroys the me
   };
   menu.render({ busy: true, image, error: null, nextAt: null });
   expect(defined(items[0]).label.text).toBe("Autumn mountains");
-  expect(defined(items[1]).label.text).toBe("© Photographer");
+  expect(defined(items[1]).label.text).toBe("Bing · © Photographer");
+  menu.render({ busy: true, image: { ...image, source: "nasa-iotd" }, error: null, nextAt: null });
+  expect(defined(items[1]).label.text).toBe("NASA Image of the Day · © Photographer");
   expect(defined(items[2]).label.text).toBe("Updating…");
   expect(defined(items[3]).setSensitive).toHaveBeenLastCalledWith(false);
   menu.render({ busy: false, image, error: "Network failure", nextAt: 0 });
