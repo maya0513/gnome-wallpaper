@@ -10,7 +10,7 @@
     "fast-xml-validator": "^1.4.2"
   },
   "devDependencies": {
-    "@girs/gjs": "^4.9.0",
+    "@girs/gjs": "^5.0.0",
     "@girs/gnome-shell": "^50.0.4",
     "@girs/soup-3.0": "^4.9.0",
     "@types/node": "^24.19.1",

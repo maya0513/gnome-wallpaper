@@ -181,8 +181,8 @@ importers:
         version: 1.4.2
     devDependencies:
       '@girs/gjs':
-        specifier: ^4.9.0
-        version: 4.9.0
+        specifier: ^5.0.0
+        version: 5.6.0
       '@girs/gnome-shell':
         specifier: ^50.0.4
         version: 50.0.4
@@ -251,6 +251,9 @@ packages:
   '@girs/cairo-1.0@4.9.0':
     resolution: {integrity: sha512-4k48vMxVsHVNFz2Ow/tqtqaImhHBDbVUMy1gTO1+O3Pst2VZs9xHlKZsnsepWTs1NNvR1/ppqCS1MXjfrGr0ag==}
 
+  '@girs/cairo-1.0@5.6.0':
+    resolution: {integrity: sha512-ezZPwEWFjYULtWvMAkx5KPEyixgU7S2dueznV95mgHjYEQNCo1kLUugFMFD2wpiLc6QLARwEkpinbQD2mDzGbw==}
+
   '@girs/clutter-18@4.9.0':
     resolution: {integrity: sha512-sJNixTPIrnB5hR7KyazsuB7QyOOPafh+j3uvXD3sohyxpWNKnhUErWMtAl2umybLRLZfgW9pXVgdirvCPZ87Lg==}
 
@@ -281,11 +284,17 @@ packages:
   '@girs/gio-2.0@4.9.0':
     resolution: {integrity: sha512-3n39vbeOmX1CggTz4vTn+xKpa9wpVe39/gLwoBY6kaXE40OLy6xmNQMB6Nhyutj00acb22fDUx81q6UgQ9gvVg==}
 
+  '@girs/gio-2.0@5.6.0':
+    resolution: {integrity: sha512-WmAlOC3ywWbPHd1It1JBDmC9xLqwcsLrX30nCMoCn66YgsMS6TBnW/UW/wwErcmjIwdd45dzYYuWfkoUrQ3rQw==}
+
   '@girs/giounix-2.0@4.9.0':
     resolution: {integrity: sha512-OCinDBCoAvDFrXmIWDUYzXG5AMXnzhQH77ua1r81RiXfkzYLVh5mbVavTviE/k0OY+MDqWQUb5zkC2w8vfNkfg==}
 
   '@girs/gjs@4.9.0':
     resolution: {integrity: sha512-RxEqCV2ANcz1SrF7nh54mUpe9Oq9YA5HuG+5q/pWToULvCr/sKtMbpNSRsAaS/xgpP7y2qGjX68YVhPjk/gHXg==}
+
+  '@girs/gjs@5.6.0':
+    resolution: {integrity: sha512-34ca6WPL+5P0SrLiDXSDKxxdf7hO1fqiDcOfIMz+JjEAcifYdTfiilkx1479dFaxRQFfdwHFcM8cxAeoKRBGpQ==}
 
   '@girs/gl-1.0@4.9.0':
     resolution: {integrity: sha512-3mYwXT28bx9ZDlMFliC9NucTRqzSEAManl4GhOP9o/mFUi+VieAbAbtkWLVQvIGfiTnietjZPgeI4JcobozgHA==}
@@ -293,8 +302,14 @@ packages:
   '@girs/glib-2.0@4.9.0':
     resolution: {integrity: sha512-ylAlrPtjVokPumJbbGQUGT1JSLtR6whvzU2DKVEoVO67h2yqZ37TFYBihwtskVf0/BfLNHdpGj2JPS+wMHJfuQ==}
 
+  '@girs/glib-2.0@5.6.0':
+    resolution: {integrity: sha512-BLeEi8a6+d1H3ViqfAekKApp2bje35aQuylS23k8jBRXbEjdSBQTjnHooCoH7usiA/Wjwf5jb/Ladb2gpN6EUw==}
+
   '@girs/gmodule-2.0@4.9.0':
     resolution: {integrity: sha512-vH75DrILqwaSu2TBgoEeiQlJywLpjGGHSFcT+IQA+iiF+91I2Kqi3KHE9AidxpG226HaRvW+ZNWFECdEV4tPVw==}
+
+  '@girs/gmodule-2.0@5.6.0':
+    resolution: {integrity: sha512-15oQ8Zl8cNZA9pQu8rFsaiX5wO3L/6HVBvWo6NRVMoiteEeKvz8DEIRE1I0+jeoLUSROleW2uzWOwd+nFTbJfA==}
 
   '@girs/gnome-shell@50.0.4':
     resolution: {integrity: sha512-69phtdJHMPUBxVRDqfE4JWSZeauTIl0zFuILMIkJbqyHOb1U9sxN7yN59x+pJWGxVTktFz/Y9uXKjDzOcHlYFA==}
@@ -310,6 +325,9 @@ packages:
 
   '@girs/gobject-2.0@4.9.0':
     resolution: {integrity: sha512-zEkMERp6u2APCkq1mFnkykxDS9Hqsawun0hiJ5L1fyFv0MWMscVvocyunS8zvsSiu2bsIqqj6F2t0qfNNsZIIg==}
+
+  '@girs/gobject-2.0@5.6.0':
+    resolution: {integrity: sha512-Fpx6bQp+v9+QG2H1VWnCulFqVeI//KMZ2+SITKkGeituBAdkT6GOy71ZnRqS6uxPOsr+fMzL7mb4X2/b5sItCA==}
 
   '@girs/graphene-1.0@4.9.0':
     resolution: {integrity: sha512-8XPKRlHPzUjXekxAzEWUWwcfC5mwEw2WCpzZ7es1rUCRFB8tjSZWGxqMErHN9hLft7Yd5rtXq8DlUrcmLW/PSg==}
@@ -1606,6 +1624,12 @@ snapshots:
       '@girs/glib-2.0': 4.9.0
       '@girs/gobject-2.0': 4.9.0
 
+  '@girs/cairo-1.0@5.6.0':
+    dependencies:
+      '@girs/gjs': 5.6.0
+      '@girs/glib-2.0': 5.6.0
+      '@girs/gobject-2.0': 5.6.0
+
   '@girs/clutter-18@4.9.0':
     dependencies:
       '@girs/atk-1.0': 4.9.0
@@ -1696,6 +1720,13 @@ snapshots:
       '@girs/gmodule-2.0': 4.9.0
       '@girs/gobject-2.0': 4.9.0
 
+  '@girs/gio-2.0@5.6.0':
+    dependencies:
+      '@girs/gjs': 5.6.0
+      '@girs/glib-2.0': 5.6.0
+      '@girs/gmodule-2.0': 5.6.0
+      '@girs/gobject-2.0': 5.6.0
+
   '@girs/giounix-2.0@4.9.0':
     dependencies:
       '@girs/gio-2.0': 4.9.0
@@ -1711,6 +1742,13 @@ snapshots:
       '@girs/glib-2.0': 4.9.0
       '@girs/gobject-2.0': 4.9.0
 
+  '@girs/gjs@5.6.0':
+    dependencies:
+      '@girs/cairo-1.0': 5.6.0
+      '@girs/gio-2.0': 5.6.0
+      '@girs/glib-2.0': 5.6.0
+      '@girs/gobject-2.0': 5.6.0
+
   '@girs/gl-1.0@4.9.0':
     dependencies:
       '@girs/gjs': 4.9.0
@@ -1721,11 +1759,22 @@ snapshots:
       '@girs/gjs': 4.9.0
       '@girs/gobject-2.0': 4.9.0
 
+  '@girs/glib-2.0@5.6.0':
+    dependencies:
+      '@girs/gjs': 5.6.0
+      '@girs/gobject-2.0': 5.6.0
+
   '@girs/gmodule-2.0@4.9.0':
     dependencies:
       '@girs/gjs': 4.9.0
       '@girs/glib-2.0': 4.9.0
       '@girs/gobject-2.0': 4.9.0
+
+  '@girs/gmodule-2.0@5.6.0':
+    dependencies:
+      '@girs/gjs': 5.6.0
+      '@girs/glib-2.0': 5.6.0
+      '@girs/gobject-2.0': 5.6.0
 
   '@girs/gnome-shell@50.0.4':
     dependencies:
@@ -1793,6 +1842,11 @@ snapshots:
     dependencies:
       '@girs/gjs': 4.9.0
       '@girs/glib-2.0': 4.9.0
+
+  '@girs/gobject-2.0@5.6.0':
+    dependencies:
+      '@girs/gjs': 5.6.0
+      '@girs/glib-2.0': 5.6.0
 
   '@girs/graphene-1.0@4.9.0':
     dependencies:
