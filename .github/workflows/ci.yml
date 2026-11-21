@@ -27,22 +27,22 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           install: false
           cache: false
       - id: mise
-        uses: maya0513/renovate-config/.github/actions/mise-pnpm@ecbede8750f082d85e4b99f12e384133e4fc1724 # main
+        uses: maya0513/renovate-config/.github/actions/mise-pnpm@2495bdd46f4cd52005b513843675dc90b9b835f2 # main
         with:
           verify-only: "true"
           lock-groups: >-
             [{"lockfile":"mise.lock","tools":["actionlint","node","pnpm","shellcheck","zizmor"],"platforms":["linux-x64","linux-arm64"],"verify":"regenerate"}]
       - id: viteplus
-        uses: maya0513/renovate-config/.github/actions/pnpm-viteplus@ecbede8750f082d85e4b99f12e384133e4fc1724 # main
+        uses: maya0513/renovate-config/.github/actions/pnpm-viteplus@2495bdd46f4cd52005b513843675dc90b9b835f2 # main
         with:
           preparation-state: ${{ steps.mise.outputs.state }}
       - id: outputs
-        uses: maya0513/renovate-config/.github/actions/pnpm-outputs@ecbede8750f082d85e4b99f12e384133e4fc1724 # main
+        uses: maya0513/renovate-config/.github/actions/pnpm-outputs@2495bdd46f4cd52005b513843675dc90b9b835f2 # main
         with:
           mise-state: ${{ steps.mise.outputs.state }}
           viteplus-state: ${{ steps.viteplus.outputs.state }}
@@ -59,7 +59,7 @@ jobs:
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
         with:
           fail-on-severity: moderate
-      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           install: false
           cache: false
@@ -88,7 +88,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           install: false
           cache: false
@@ -117,7 +117,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           install: false
           cache: false
@@ -138,7 +138,7 @@ jobs:
         run: mise exec node pnpm -- pnpm exec vp run coverage
       - name: Upload test and coverage reports, including failures
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage
           path: |
@@ -154,7 +154,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           install: false
           cache: false
@@ -180,7 +180,7 @@ jobs:
         run: mise exec node pnpm -- pnpm exec vp run native
       - name: Upload native and size reports, including failures
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-reports
           path: |
@@ -201,7 +201,7 @@ jobs:
           JS
       - name: Upload the validated extension ZIP
         if: success()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: gnome-wallpaper
           path: artifacts/*.zip
