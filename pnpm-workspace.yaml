@@ -1,5 +1,9 @@
 pmOnFail: error
 
+minimumReleaseAge: 10080
+minimumReleaseAgeStrict: true
+minimumReleaseAgeIgnoreMissingTime: false
+
 overrides:
   vite: npm:@voidzero-dev/vite-plus-core@1.0.0
   vitest: 5.0.1
