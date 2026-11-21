@@ -13,3 +13,5 @@ peerDependencyRules:
 minimumReleaseAgeExclude:
   # Renovate security update: fast-xml-parser@5.12.0
   - fast-xml-parser@5.12.0
+  # Renovate security update: vite-plus@1.3.0
+  - vite-plus@1.3.0
