@@ -5,8 +5,8 @@ minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 
 overrides:
-  vite: npm:@voidzero-dev/vite-plus-core@1.0.0
-  vitest: 5.0.1
+  "vite": "npm:@voidzero-dev/vite-plus-core@1.6.0"
+  "vitest": "5.1.0"
 peerDependencyRules:
   allowedVersions:
     vite: "1"
