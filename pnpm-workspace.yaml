@@ -10,3 +10,6 @@ overrides:
 peerDependencyRules:
   allowedVersions:
     vite: "1"
+minimumReleaseAgeExclude:
+  # Renovate security update: fast-xml-parser@5.12.0
+  - fast-xml-parser@5.12.0
