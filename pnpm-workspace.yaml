@@ -5,11 +5,13 @@ minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 
 overrides:
-  vite: npm:@voidzero-dev/vite-plus-core@1.0.0
-  vitest: 5.0.1
+  "vite": "npm:@voidzero-dev/vite-plus-core@1.3.0"
+  "vitest": "5.0.5"
 peerDependencyRules:
   allowedVersions:
     vite: "1"
 minimumReleaseAgeExclude:
   # Renovate security update: fast-xml-parser@5.12.0
   - fast-xml-parser@5.12.0
+  # Renovate security update: vite-plus@1.3.0
+  - vite-plus@1.3.0
