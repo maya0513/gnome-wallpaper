@@ -11,8 +11,8 @@
   },
   "devDependencies": {
     "@girs/gjs": "^5.0.0",
-    "@girs/gnome-shell": "^50.0.4",
-    "@girs/soup-3.0": "^4.9.0",
+    "@girs/gnome-shell": "^51.0.0",
+    "@girs/soup-3.0": "^5.0.0",
     "@types/node": "^26.6.6",
     "@vitest/coverage-v8": "5.1.0",
     "typescript": "^7.0.2",
