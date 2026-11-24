@@ -196,8 +196,8 @@ importers:
         specifier: ^50.0.4
         version: 50.0.4
       '@girs/soup-3.0':
-        specifier: ^4.9.0
-        version: 4.9.0
+        specifier: ^5.0.0
+        version: 5.6.0
       '@types/node':
         specifier: ^24.19.1
         version: 24.19.2
@@ -380,8 +380,8 @@ packages:
   '@girs/shew-0@4.9.0':
     resolution: {integrity: sha512-fW4pl8JDRll47YQMAmqEUSQDCZhk4scEEvRsvExLGrWc6MygdwRbFA+04ra+zgRO365k4j7t5gFC1R1/0X99OQ==}
 
-  '@girs/soup-3.0@4.9.0':
-    resolution: {integrity: sha512-kVO0tP556+0jsSsNE0n/i3d8QrVqHPO25gdwSRyuX/3E9cuTrJ/69Wrmnt+zJ0+MCnOr5I09yJv0TxUvwiwDDw==}
+  '@girs/soup-3.0@5.6.0':
+    resolution: {integrity: sha512-ELaENtDKTkk3aKiEQcS0deuDHHAHr7BSBiDN5OQOo++bGz1MawHw/aRrIoV0f19wYYsiHkdExXgg5M71ozQ2Jg==}
 
   '@girs/st-18@4.9.0':
     resolution: {integrity: sha512-VMdgmklmH2wDc0CgASmUQDtruTmQCdIqWm8/5F6Ks5URDkP3FRucrq88avXlaerWRN/dwikYT0UQfJPT+Dw8IQ==}
@@ -1979,13 +1979,13 @@ snapshots:
       '@girs/pango-1.0': 4.9.0
       '@girs/pangocairo-1.0': 4.9.0
 
-  '@girs/soup-3.0@4.9.0':
+  '@girs/soup-3.0@5.6.0':
     dependencies:
-      '@girs/gio-2.0': 4.9.0
-      '@girs/gjs': 4.9.0
-      '@girs/glib-2.0': 4.9.0
-      '@girs/gmodule-2.0': 4.9.0
-      '@girs/gobject-2.0': 4.9.0
+      '@girs/gio-2.0': 5.6.0
+      '@girs/gjs': 5.6.0
+      '@girs/glib-2.0': 5.6.0
+      '@girs/gmodule-2.0': 5.6.0
+      '@girs/gobject-2.0': 5.6.0
 
   '@girs/st-18@4.9.0':
     dependencies:
