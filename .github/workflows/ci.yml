@@ -32,17 +32,17 @@ jobs:
           install: false
           cache: false
       - id: mise
-        uses: maya0513/renovate-config/.github/actions/mise-pnpm@5e02b926aa3db80e1c02f7e84bf2ea6ce900cb14 # main
+        uses: maya0513/renovate-config/.github/actions/mise-pnpm@b9c922c4ae2330b1d0f23ca83f62bff5f6b263ef # main
         with:
           verify-only: "true"
           lock-groups: >-
             [{"lockfile":"mise.lock","tools":["actionlint","node","pnpm","shellcheck","zizmor"],"platforms":["linux-x64","linux-arm64"],"verify":"regenerate"}]
       - id: viteplus
-        uses: maya0513/renovate-config/.github/actions/pnpm-viteplus@5e02b926aa3db80e1c02f7e84bf2ea6ce900cb14 # main
+        uses: maya0513/renovate-config/.github/actions/pnpm-viteplus@b9c922c4ae2330b1d0f23ca83f62bff5f6b263ef # main
         with:
           preparation-state: ${{ steps.mise.outputs.state }}
       - id: outputs
-        uses: maya0513/renovate-config/.github/actions/pnpm-outputs@5e02b926aa3db80e1c02f7e84bf2ea6ce900cb14 # main
+        uses: maya0513/renovate-config/.github/actions/pnpm-outputs@b9c922c4ae2330b1d0f23ca83f62bff5f6b263ef # main
         with:
           mise-state: ${{ steps.mise.outputs.state }}
           viteplus-state: ${{ steps.viteplus.outputs.state }}
