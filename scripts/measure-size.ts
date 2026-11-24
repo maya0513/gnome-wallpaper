@@ -1,3 +1,4 @@
+import console from "node:console";
 import { readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
