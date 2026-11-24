@@ -150,7 +150,7 @@ const checkDependencyAutomation = (
 describe("CI acceptance policy", () => {
   it("pins Node and pnpm patches and keeps their lockfile under version control", () => {
     const tools = readFileSync("mise.toml", "utf8");
-    expect(tools).toMatch(/^node = "24\.\d+\.\d+"$/mu);
+    expect(tools).toMatch(/^node = "26\.\d+\.\d+"$/mu);
     expect(tools).toMatch(/^pnpm = "12\.\d+\.\d+"$/mu);
     expect(existsSync("mise.lock")).toBe(true);
     expect(readFileSync(".gitignore", "utf8").split("\n")).not.toContain("mise.lock");
@@ -270,7 +270,7 @@ describe("CI acceptance policy", () => {
       {
         matchManagers: ["npm"],
         matchPackageNames: ["@types/node"],
-        allowedVersions: ">=24.0.0 <25.0.0",
+        allowedVersions: ">=26.0.0 <27.0.0",
       },
     ]);
     for (const path of [
